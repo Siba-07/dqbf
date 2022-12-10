@@ -3,6 +3,7 @@ import argparse
 import tempfile
 
 from src.preprocess import *
+from correctionset import CorrectionSet
 
 from pysat.formula import CNF
 from pysat.solvers import Solver
@@ -37,13 +38,19 @@ def solver():
     for y in Yvar:
         neg.extend(getEquiMultiClause(y,skf[y],neg.nv))
     
+    cs  = CorrectionSet(depmap)
+
     while True:
         s = Solver()
         s.append_formula(neg.clauses)
-        print(s.solve())
-        print(s.get_model())
+        res = s.solve()
+        if res:
+            b = cleanmodel(s.get_model())
+            cs.add(b)
+        else:
+            break
         break
-
+        
     # TODO -  Handcraft an example
 
 

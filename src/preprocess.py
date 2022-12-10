@@ -96,4 +96,7 @@ def getEquiMultiClause(a, f, n):
     gc = [*range(-n-len(f),-n)]
     clauses.append(gc + [a])
     return clauses
-    
+
+def cleanmodel(m, Xvar, Yvar):
+    clean = [x for x in m if abs(x) in Xvar]
+    return clean
