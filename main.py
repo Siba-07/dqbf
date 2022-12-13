@@ -3,7 +3,7 @@ import argparse
 import tempfile
 
 from src.preprocess import *
-from correctionset import CorrectionSet
+from src.correctionset import CorrectionSet
 
 from pysat.formula import CNF
 from pysat.solvers import Solver
@@ -13,7 +13,16 @@ n = 10000
 def solver():
     print("parsing")
     start_time = time.time()
-    Xvar, Yvar, depmap, clauses = parse(args.input)
+    Xvar, Yvar, depmap, clauses, ind = parse(args.input)
+    
+    # print(Xvar)
+    # print(Yvar)
+    # print(clauses)
+
+    # for x in depmap.keys():
+    #     print(x)
+    #     print(depmap[x])
+    
 
     if args.verbose:
         print("count X variables", len(Xvar))
@@ -33,30 +42,66 @@ def solver():
     #     print(y)
     #     print(skf[y])
 
-    exp = CNF(from_clauses=clauses)
-    neg = exp.negate()
-    for y in Yvar:
-        neg.extend(getEquiMultiClause(y,skf[y],neg.nv))
     
-    cs  = CorrectionSet(depmap)
+    
+    cs  = CorrectionSet(depmap, proj , clauses, Xvar, Yvar)
+    corsofar = {}
+
+    exp = CNF(from_clauses=clauses)
+    neg = exp.negate(topv = currn())
+    for y in Yvar:
+        neg.extend(getEquiMultiClause(y,skf[y]))
+    
+    updatemaxvar(neg.nv)
+
 
     while True:
+        allclauses = deepcopy(neg.clauses)
+        corrclauses = addCorrectionClauses(corsofar, Xvar) 
+        allclauses.extend(corrclauses)
+        # print(allclauses)
         s = Solver()
-        s.append_formula(neg.clauses)
+        s.append_formula(allclauses)
         res = s.solve()
         if res:
-            b = cleanmodel(s.get_model())
+            b = cleanmodel(s.get_model(), Xvar, Yvar)
+            print(b)
             cs.add(b)
+            x = cs.getcs(b)
+            cx, ucx = classifyCs(x)
+            
+            gg, modelmap = getJointEncoding(ucx)
+            
+            sc = Solver()
+            sc.append_formula(gg)
+            resc = sc.solve()
+            if resc:
+                bc = sc.get_model()
+                updateCorrections(bc, modelmap, ucx)
+                # print(checkModel(bc, modelmap, cx))
+                if checkModel(bc, modelmap, cx):
+                    correctionClauses(bc, modelmap, corsofar)
+                    #updateSkolems(bc, modelmap, skf, Xvar)
+                else:
+                    gg, modelmap = getJointEncoding(x)
+                    sx = Solver()
+                    sx.append_formula(gg)
+                    resx = sx.solve()
+                    if resx:
+                        bx = sx.get_model()
+                        updateCorrections(bx, modelmap, x)
+                        correctionClauses( bx, modelmap, corsofar)
+                        #updateSkolems(bx, modelmap , skf, Xvar)
+                    else:
+                        break
+            else:
+                break
         else:
-            break
-        break
-        
-    # TODO -  Handcraft an example
-
-
-
-
-    
+            for y in skf.keys():
+                print(y)
+                print(skf[y])
+            print("SAT")
+            return
 
 if __name__ ==  "__main__":
     parser = argparse.ArgumentParser()
