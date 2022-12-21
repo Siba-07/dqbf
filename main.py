@@ -7,101 +7,134 @@ from src.correctionset import CorrectionSet
 
 from pysat.formula import CNF
 from pysat.solvers import Solver
+from src.debug_utils import *
 
 n = 10000
+
+def check_SAT(clauses):
+    s = Solver()
+    s.append_formula(clauses)
+    res = s.solve()
+    b = s.get_model()
+    return res, b
+
 
 def solver():
     print("parsing")
     start_time = time.time()
     Xvar, Yvar, depmap, clauses, ind = parse(args.input)
     
-    # print(Xvar)
-    # print(Yvar)
-    # print(clauses)
+    if (args.verbose >= 1):
+        print("Xvars : {}".format(Xvar))
+        print("count of X variables", len(Xvar))
+        print("Yvars : {}".format(Yvar))
+        print("count of Y variables", len(Yvar))
+        print("No of clauses = {}".format(len(clauses)))
 
-    # for x in depmap.keys():
-    #     print(x)
-    #     print(depmap[x])
-    
+        if (args.verbose >= 2):
+            for y in depmap:
+                print("FOR y = {}, dependancy vars are {}".format(y, depmap[y]))
 
-    if args.verbose:
-        print("count X variables", len(Xvar))
-        print("count Y variables", len(Yvar))
-    
-    inputfile_name = args.input.split('/')[-1][:-9]
-    # cnffile_name = tempfile.gettempdir()+"/"+inputfile_name+".cnf"
-    
     proj = getProjections(clauses, Xvar, Yvar, depmap)
     skf  = getSkolemFunctions(proj)
-    # for y in proj.keys():
-    #     print(y)
-    #     print(proj[y])
-    
-    # print("--------")
-    # for y in skf:
-    #     print(y)
-    #     print(skf[y])
 
-    
+    if (args.verbose >=1 ):
+        for y in proj.keys():
+            print("No of proj[y] clauses for {} =  {}".format(y, len(proj[y])))
+            if args.verbose >=2 : print("Projection function - {}".format(proj[y]))
+        for y in skf.keys():
+            print("No of skf[y] clauses for {} =  {}".format(y, len(skf[y])))
+            if args.verbose >=2 : print("Skolem functions = {}".format(skf[y]))
     
     cs  = CorrectionSet(depmap, proj , clauses, Xvar, Yvar)
     corsofar = {}
 
+    # initialize
     exp = CNF(from_clauses=clauses)
     neg = exp.negate(topv = currn())
+    updatemaxvar(neg.nv)
     for y in Yvar:
         neg.extend(getEquiMultiClause(y,skf[y]))
-    
     updatemaxvar(neg.nv)
-
-
+    corrno = 0
+    th = 1000
+    tempclauses = []
+    cind = 0
+    ucind = 0
     while True:
+        corrno += 1
+        if(args.verbose >=1 ) : print("Inside loop, correction no. = {}".format(corrno))
         allclauses = deepcopy(neg.clauses)
         corrclauses = addCorrectionClauses(corsofar, Xvar) 
         allclauses.extend(corrclauses)
-        # print(allclauses)
-        s = Solver()
-        s.append_formula(allclauses)
-        res = s.solve()
+        allclauses.extend(tempclauses)
+        res, b = check_SAT(allclauses)
+
         if res:
-            b = cleanmodel(s.get_model(), Xvar, Yvar)
-            print(b)
+            b = cleanmodel(b, Xvar, Yvar)
             cs.add(b)
-            x = cs.getcs(b)
-            cx, ucx = classifyCs(x)
+            ucind+=1
+            if args.verbose >=1 : cs.printcs(b)
+            if((ucind-cind) < th):
+                tempclauses.append(getTempClause(b, Xvar))
+                continue
+            # print(cind)
+            # print(ucind)
+            print("ENTERING SOLVER ...")
+            
+            x = cs.getcs()
+            cx, ucx = classifyCs(x) ########### set this dynamically #############
+            # cs.printcs(ucx)
             
             gg, modelmap = getJointEncoding(ucx)
-            
-            sc = Solver()
-            sc.append_formula(gg)
-            resc = sc.solve()
+            resc , bc = check_SAT(gg)
+            allcors = cs.allcors
+            # for c in allcors:
+            #     print(c)
             if resc:
-                bc = sc.get_model()
-                updateCorrections(bc, modelmap, ucx)
+                updateCorrectionsTemp(bc, modelmap, allcors[cind+1:ucind])
                 # print(checkModel(bc, modelmap, cx))
-                if checkModel(bc, modelmap, cx):
+                if checkModel(bc, modelmap, cx , ucx):
                     correctionClauses(bc, modelmap, corsofar)
+                    updateCorrectionsFinal(allcors[cind+1:ucind])
                     #updateSkolems(bc, modelmap, skf, Xvar)
                 else:
+                    print("local correction failed")
                     gg, modelmap = getJointEncoding(x)
-                    sx = Solver()
-                    sx.append_formula(gg)
-                    resx = sx.solve()
+                    resx, bx = check_SAT(gg)
                     if resx:
-                        bx = sx.get_model()
-                        updateCorrections(bx, modelmap, x)
-                        correctionClauses( bx, modelmap, corsofar)
+                        updateCorrectionsTemp(bx, modelmap, allcors)
+                        correctionClauses(bx, modelmap, corsofar)
+                        updateCorrectionsFinal(allcors)
                         #updateSkolems(bx, modelmap , skf, Xvar)
                     else:
+                        print("here1")
                         break
             else:
+                print("here2")
                 break
         else:
+            x = cs.getcs()
+            allcors = cs.allcors
+            gg, modelmap = getJointEncoding(x)
+            resx, bx = check_SAT(gg)
+            if resx:
+                updateCorrectionsTemp(bx, modelmap, allcors)
+                correctionClauses(bx, modelmap, corsofar)
+                updateCorrectionsFinal(allcors)
+            else:
+                print("here3")
+                break
+
             for y in skf.keys():
                 print(y)
                 print(skf[y])
             print("SAT")
             return
+
+        cind = ucind
+        tempclauses = []
+
 
 if __name__ ==  "__main__":
     parser = argparse.ArgumentParser()

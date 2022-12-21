@@ -2,17 +2,22 @@ from copy import deepcopy
 from .preprocess import varnames
 
 class Correction:
-    def __init__(self, m, proj, clauses, y, Xvar, Yvar):
+    def __init__(self, m, proj, clauses, Xvar, Yvar):
         # print(y)
         # print(m)
         self.m = m
         self.id = self.get_id()
         self.ytoy_ = {}
         self.y_toy = {}
-        self.y = y
+        self.yvars = {}
         self.enc = self.getEncoding(clauses, Xvar, Yvar)
         self.corrected = 0
-        
+        for y in Yvar:
+            self.yvars[abs(y)] = abs(y)
+    
+    def __str__(self) -> str:
+        return self.id
+
     def get_id(self):
         sm = sorted(self.m, key=abs)
         id = ""
@@ -55,6 +60,11 @@ class Correction:
 class CorrectionSet:
     def __init__(self, depmap, proj, clauses, Xvar, Yvar):
         self.cs = {}
+        # self.ucx = {}
+        self.allcors = []
+        for y in Yvar:
+            self.cs[y] = {}
+        
         self.depmap = deepcopy(depmap)
         self.proj = deepcopy(proj) 
         self.clauses = deepcopy(clauses)
@@ -67,6 +77,7 @@ class CorrectionSet:
         # print(sm)
         key = ""
         dep = self.depmap[y]
+        # print(y, dep, sm)
         # print(dep)
         for x in sm:
             if abs(x) in dep:
@@ -78,22 +89,30 @@ class CorrectionSet:
                 key += "#"
         return key
 
+    #new idea for each y maintain a dictionary, and then maintain a list of corrections and then 
     def add(self,m):
-        for y in self.depmap:
+        corr = Correction(m , self.proj, self.clauses, self.Xvar, self.Yvar)  
+        self.allcors.append(corr)
+        for y in self.depmap.keys():
             k = self.getKey(y,m)
-            if k in self.cs.keys():
-                self.cs[k].append(Correction(m, self.proj, self.clauses, y, self.Xvar, self.Yvar))
+
+            if k in self.cs[y].keys():
+                self.cs[y][k].append(corr)
             else:
-                self.cs[k] = [Correction(m, self.proj, self.clauses, y, self.Xvar, self.Yvar)]
+                self.cs[y][k] = [corr]
     
-    def getcs(self, m):
-        corrset = {}
-        for y in self.depmap:
-            k = self.getKey(y,m)
-            corrset[y] = self.cs[k]
-        
-        return corrset
+    def getcs(self):
+        return self.cs
 
-
+    def printcs(self, cx):
+        for y in cx.keys():
+            # print(y)
+            for k in cx[y].keys():
+                # print(k)
+                for c in cx[y][k]:
+                    print(y, k, c)
+        # for y in self.depmap:
+        #     k = self.getKey(y, m)
+        #     print("{} with key {} has {} corrections".format(y, k, len(self.cs[y][k])))
 
         

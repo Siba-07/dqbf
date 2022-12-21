@@ -22,10 +22,16 @@ def parse(inputfile):
         if line.startswith("p"):
             continue
         if line.startswith("a"):
-            Xvar += line.strip("a").strip("\n").strip(" ").split(" ")[:-1]
+            vars = line.strip("a").strip("\n").strip(" ").split(" ")[:-1]
+            vars = list(map(int, list(vars)))
+            Xvar.extend(vars)
             continue
         if line.startswith("e"):
-            Yvar += line.strip("e").strip("\n").strip(" ").split(" ")[:-1]
+            vars = line.strip("e").strip("\n").strip(" ").split(" ")[:-1]
+            vars = list(map(int, list(vars)))
+            for y in vars:
+                depmap[y] = Xvar
+            Yvar.extend(vars)
             continue
         if line.startswith("d"):
             vars = line.strip("d").strip("\n").strip(" ").split(" ")[:-1]
@@ -43,13 +49,10 @@ def parse(inputfile):
 
     if (len(Xvar) == 0) or (len(Yvar) == 0) or (len(dqdimacs_list) == 0):
         print("problem with the files")
-    
-    Xvar = list(map(int, list(Xvar)))
-    Yvar = list(map(int, list(Yvar)))
 
-    for y in Yvar:
-        if y not in depmap.keys():
-            depmap[y] = Xvar
+    # for y in Yvar:
+    #     if y not in depmap.keys():
+    #         depmap[y] = Xvar
 
     dep = set(dep)
     totvar = Xvar +  Yvar
@@ -125,77 +128,117 @@ def cleanmodel(m, Xvar, Yvar):
 def getJointEncoding(x):
     je = []
     modelmap = {}
-    for k in x.keys():
-        cors = x[k]
+    for y in x.keys():
+        for k in x[y].keys():
+            cors = x[y][k]
+            if (len(cors) == 1):
+                modelmap[cors[0].id] = cors[0]
+                je.extend(cors[0].enc)
+                # return je, modelmap
+            
+            for i in range(len(cors)):
+                for j in range((i+1),len(cors)):
+                    if(cors[i].id in modelmap.keys()):
+                        cor1 = modelmap[cors[i].id]
+                    else:
+                        cor1 = cors[i]
+                        modelmap[cor1.id] = cor1
+                        je.extend(cor1.enc)
 
-        if (len(cors) == 1):
-            modelmap[cors[0].id] = cors[0]
-            je.extend(cors[0].enc)
-            return je, modelmap
-        
-        for i in range(len(cors)):
-            for j in range((i+1),len(cors)):
-                if(cors[i].id in modelmap.keys()):
-                    cor1 = modelmap[cors[i].id]
-                else:
-                    cor1 = cors[i]
-                    modelmap[cor1.id] = cor1
-                    je.extend(cor1.enc)
+                    if(cors[j].id in modelmap.keys()):
+                        cor2 = modelmap[cors[j].id]
+                    else:
+                        cor2 = cors[j]
+                        modelmap[cor2.id] = cor2
+                        je.extend(cor2.enc)
 
-                if(cors[j].id in modelmap.keys()):
-                    cor2 = modelmap[cors[j].id]
-                else:
-                    cor2 = cors[j]
-                    modelmap[cor2.id] = cor2
-                    je.extend(cor2.enc)
-
-                y1 = cor1.ytoy_[k]
-                y2 = cor2.ytoy_[k]
-                je.extend([[-y1,y2],[y1,-y2]])
+                    y1 = cor1.ytoy_[y]
+                    y2 = cor2.ytoy_[y]
+                    je.extend([[-y1,y2],[y1,-y2]])
     
     return je, modelmap
     
 def classifyCs(x):
+    # print(x)
     cx = {}
     ucx = {}
     for y in x.keys():
-        for c in x[y]:
-            if(c.corrected == 0):
-                if y in ucx.keys():
-                    ucx[y].append(c)
+        cx[y] = {}
+        ucx[y] = {}
+        for k in x[y].keys():
+            cors = x[y][k]
+            for c in cors:
+                if(c.corrected == 0):
+                    if y in ucx[y].keys():
+                        ucx[y][k].append(c)
+                    else:
+                        ucx[y][k] = [c] 
                 else:
-                    ucx[y] = [c] 
-            else:
-                if y in cx.keys():
-                    cx[y].append(c)
-                else:
-                    cx[y] = [c]
+                    if y in cx[y].keys():
+                        cx[y][k].append(c)
+                    else:
+                        cx[y][k] = [c]
     return cx, ucx
 
-def updateCorrections(b, modelmap, x):
+# def getSize(x):
+#     sz = 0
+#     for y in x.keys():
+#         sz += len(x[y])
+#     return sz
+
+def updateCorrectionsTemp(b, modelmap, cors):
 # modelmap : id -> corr
-    for k in x.keys():
-        cors = x[k]
-        for c in cors:
-            usedcor = modelmap[c.id]
-            yvar = usedcor.ytoy_[abs(c.y)]
+    for c in cors:
+        usedcor = modelmap[c.id]
+        for y in c.yvars.keys():
+            yvar = usedcor.ytoy_[abs(y)]
             if yvar in b:
-                c.y = abs(c.y)
+                c.yvars[y] = y
             else:
-                c.y = -abs(c.y)
-    return
-            
+                c.yvars[y] = -y   
+    # for y in x.keys():
+    #     for k in x[y].keys():
+    #         cors = x[y][k]
+    #         for c in cors:
+    #             usedcor = modelmap[c.id]
+    #             # if not temp : c.corrected = 1
+    #             for y in c.yvars.keys():
+    #             # c.corrected = 1
+    #                 yvar = usedcor.ytoy_[abs(y)]
+    #                 if yvar in b:
+    #                     c.yvars[y] = y
+    #                 else:
+    #                     c.yvars[y] = -y
+    # return
 
+def updateCorrectionsFinal(cors):
+    for c in cors:
+        c.corrected = 1  
 
-def checkModel(b, modelmap, x):
+# have to change this
+def checkModel(b, modelmap, cx, ucx):
 # modelmap : id -> corr
-    for k in x.keys():
-        cors = x[k]
-        for c in cors:
-            usedcor = modelmap[c.id]
-            yvar = usedcor.ytoy_[abs(usedcor.y)]
-            if yvar*c.y < 0: 
-                return False
+    for y in cx.keys():
+        for k in cx[y].keys():
+            cor1 = cx[y][k]
+            if k in ucx[y].keys():
+                cor2 = ucx[y][k]
+            else:
+                continue
+
+            # if len(cor1) + len(cor2) < 2:
+            #     return True
+            
+            c1 = cor1[0]
+            c2 = cor2[0]
+
+            usedcor = modelmap[c2.id]
+            ynew = usedcor.ytoy_[abs(y)]
+            if ynew not in b: ynew = -ynew
+            yold = c1.yvars[y]
+
+            if yold*ynew < 0 : return False
+
     return True
 
 def getX(sx, id):
@@ -252,7 +295,14 @@ def addCorrectionClauses(corsofar, Xvar):
             corrclauses.append(op)
     return corrclauses
 
-
+def getTempClause(b, Xvar):
+    clause = []
+    for x in Xvar:
+        if x in b:
+            clause.append(-x)
+        else:
+            clause.append(x)
+    return clause
 
 
 
