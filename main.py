@@ -11,6 +11,8 @@ from src.debug_utils import *
 
 n = 10000
 
+import time
+
 def check_SAT(clauses):
     s = Solver()
     s.append_formula(clauses)
@@ -57,26 +59,37 @@ def solver():
         neg.extend(getEquiMultiClause(y,skf[y]))
     updatemaxvar(neg.nv)
     corrno = 0
-    th = 1000
+    th = 100
     tempclauses = []
     cind = 0
     ucind = 0
+    corrclauses = []
+    tc = []
     while True:
         corrno += 1
-        if(args.verbose >=1 ) : print("Inside loop, correction no. = {}".format(corrno))
-        allclauses = deepcopy(neg.clauses)
-        corrclauses = addCorrectionClauses(corsofar, Xvar) 
-        allclauses.extend(corrclauses)
-        allclauses.extend(tempclauses)
+        # if(args.verbose >=1 ) : print("Inside loop, correction no. = {}".format(corrno))
+        if cind == ucind : 
+            allclauses = deepcopy(neg.clauses)
+            # gk = time.time()
+            corrclauses = addCorrectionClauses(corsofar, Xvar)
+            # if args.verbose >=3 : print("Time taken to add correction clauses = {}".format(time.time() - gk)) 
+            allclauses.extend(corrclauses)
+        # print(allclauses)
+        if len(tc) != 0: 
+            # print(tc)
+            allclauses.append(tc)
+        # print(allclauses)
         res, b = check_SAT(allclauses)
-
+        # print(res)
         if res:
             b = cleanmodel(b, Xvar, Yvar)
+            at = time.time()
             cs.add(b)
+            #if args.verbose >= 3: print("Time taken to add correction ={}".format(time.time()- at))
             ucind+=1
-            if args.verbose >=1 : cs.printcs(b)
+            # if args.verbose >=1 : cs.printcs()
             if((ucind-cind) < th):
-                tempclauses.append(getTempClause(b, Xvar))
+                tc = getTempClause(b, Xvar)
                 continue
             # print(cind)
             # print(ucind)
@@ -85,27 +98,48 @@ def solver():
             x = cs.getcs()
             cx, ucx = classifyCs(x) ########### set this dynamically #############
             # cs.printcs(ucx)
-            
+            st = time.time()
             gg, modelmap = getJointEncoding(ucx)
+            jt = time.time()
+            if args.verbose >= 3 : print("Time for getting local encoding = {}".format(jt - st))
             resc , bc = check_SAT(gg)
+            satt = time.time()
+            if args.verbose >= 3 : print("Time for SAT call = {}".format(satt - jt))
             allcors = cs.allcors
             # for c in allcors:
             #     print(c)
             if resc:
                 updateCorrectionsTemp(bc, modelmap, allcors[cind+1:ucind])
+                if args.verbose >= 3 : print("Time for updateCorrtemp call = {}".format(time.time() - satt))
+
                 # print(checkModel(bc, modelmap, cx))
+                ct = time.time()
                 if checkModel(bc, modelmap, cx , ucx):
+                    if args.verbose >= 3 : print("Time for checking model ={}".format(time.time() - ct))
+                    cmt = time.time()
                     correctionClauses(bc, modelmap, corsofar)
+                    if args.verbose >= 3 : print("Time for correctionclauses call = {}".format(time.time() - cmt))
+                    cct = time.time()
                     updateCorrectionsFinal(allcors[cind+1:ucind])
+                    if args.verbose >= 3 : print("Time for updatecorrectionfinal call = {}".format(time.time() - cct))
+
                     #updateSkolems(bc, modelmap, skf, Xvar)
+                    if args.verbose >= 3 : print("Time elapsed for local correction = {}".format(time.time() - st)) 
                 else:
                     print("local correction failed")
+                    lt = time.time()
+                    if args.verbose >= 3 : print("Time elapsed for local correction = {}".format(lt - st)) 
                     gg, modelmap = getJointEncoding(x)
+                    jt = time.time()
+                    if args.verbose >= 3 : print("Time for getting global encoding = {}".format(jt - lt))
                     resx, bx = check_SAT(gg)
+                    if args.verbose >= 3 : print("Time for global SAT call = {}".format(time.time() - jt))
+
                     if resx:
                         updateCorrectionsTemp(bx, modelmap, allcors)
                         correctionClauses(bx, modelmap, corsofar)
                         updateCorrectionsFinal(allcors)
+                        if args.verbose >= 3 : print("Time elapsed for global correction = {}".format(time.time() - lt)) 
                         #updateSkolems(bx, modelmap , skf, Xvar)
                     else:
                         print("here1")
@@ -140,7 +174,7 @@ if __name__ ==  "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("input", help="input file")
-    parser.add_argument('--verb', type=int, help="0, 1, 2", dest= 'verbose')
+    parser.add_argument('--verb', type=int, help="0, 1, 2, 3", dest= 'verbose')
     
     args = parser.parse_args()
     print("Starting solver")

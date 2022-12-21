@@ -1,4 +1,5 @@
 from copy import deepcopy
+from bisect import bisect_left, bisect_right
 
 global_n = 100000
 
@@ -134,6 +135,7 @@ def getJointEncoding(x):
             if (len(cors) == 1):
                 modelmap[cors[0].id] = cors[0]
                 je.extend(cors[0].enc)
+                # yset.update(set(cors[0].y_toy.keys()))
                 # return je, modelmap
             
             for i in range(len(cors)):
@@ -155,7 +157,6 @@ def getJointEncoding(x):
                     y1 = cor1.ytoy_[y]
                     y2 = cor2.ytoy_[y]
                     je.extend([[-y1,y2],[y1,-y2]])
-    
     return je, modelmap
     
 def classifyCs(x):
@@ -188,11 +189,21 @@ def classifyCs(x):
 
 def updateCorrectionsTemp(b, modelmap, cors):
 # modelmap : id -> corr
+    bm = sorted(b, key=abs)
+    bk = [abs(y) for y in b]
+    bs = sorted(bk)
+
     for c in cors:
         usedcor = modelmap[c.id]
+        ymin = usedcor.fy
+        ymax = usedcor.ly
+        i1 = bisect_left(bs, ymin)
+        i2 = bisect_right(bs, ymax)
+        breq = bm[i1:i2]
+        # print(breq, usedcor.y_toy.keys())
         for y in c.yvars.keys():
             yvar = usedcor.ytoy_[abs(y)]
-            if yvar in b:
+            if yvar in breq:
                 c.yvars[y] = y
             else:
                 c.yvars[y] = -y   
@@ -250,33 +261,41 @@ def getX(sx, id):
             res.append(sx[i])
     return res
 
-def updateSkolems(b, modelmap, skf, Xvar):
-    sx = sorted(Xvar)
-    for id in modelmap.keys():
-        x = getX(sx, id)
-        c = modelmap[id]
-        for k in c.y_toy.keys():
-            y_ = k
-            y = c.y_toy[y_]
-            if y_ in b:
-                op = x.copy()
-                op.append(y)
-                skf[y].append(op)
-            else:
-                op = x.copy()
-                op.append(-y)
-                skf[y].append(op)
-    return 
+# def updateSkolems(b, modelmap, skf, Xvar):
+#     sx = sorted(Xvar)
+#     for id in modelmap.keys():
+#         x = getX(sx, id)
+#         c = modelmap[id]
+#         for k in c.y_toy.keys():
+#             y_ = k
+#             y = c.y_toy[y_]
+#             if y_ in b:
+#                 op = x.copy()
+#                 op.append(y)
+#                 skf[y].append(op)
+#             else:
+#                 op = x.copy()
+#                 op.append(-y)
+#                 skf[y].append(op)
+#     return 
 
 
 def correctionClauses(b, modelmap, corsofar):
+    bm = sorted(b, key=abs)
+    bk = [abs(y) for y in b]
+    bs = sorted(bk)
     for id in modelmap.keys():
         corr = modelmap[id]
         op = []
+        ymin = corr.fy
+        ymax = corr.ly
+        i1 = bisect_left(bs, ymin)
+        i2 = bisect_right(bs, ymax)
+        breq = bm[i1:i2]
         for k in corr.y_toy.keys():
             y_ = k
             y = corr.y_toy[y_]
-            if y_ in b:
+            if y_ in breq:
                 op.append(y)
             else:
                 op.append(-y)

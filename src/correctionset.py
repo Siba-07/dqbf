@@ -10,6 +10,8 @@ class Correction:
         self.ytoy_ = {}
         self.y_toy = {}
         self.yvars = {}
+        self.fy = -1
+        self.ly = -1
         self.enc = self.getEncoding(clauses, Xvar, Yvar)
         self.corrected = 0
         for y in Yvar:
@@ -42,6 +44,8 @@ class Correction:
                 enc.append([x for x in k if abs(x) not in Xvar])
         
         newnames = varnames(len(Yvar))
+        self.fy  = min(newnames)
+        self.ly = max(newnames)
         
         for i in range(len(newnames)):
             self.ytoy_[Yvar[i]] = newnames[i]
@@ -71,9 +75,8 @@ class CorrectionSet:
         self.Xvar = deepcopy(Xvar)
         self.Yvar = deepcopy(Yvar)
     
-    def getKey(self,y,m):
+    def getKey(self,y,sm):
     #get key from model given y
-        sm = sorted(m, key=abs)
         # print(sm)
         key = ""
         dep = self.depmap[y]
@@ -91,11 +94,11 @@ class CorrectionSet:
 
     #new idea for each y maintain a dictionary, and then maintain a list of corrections and then 
     def add(self,m):
+        sm = sorted(m, key=abs)
         corr = Correction(m , self.proj, self.clauses, self.Xvar, self.Yvar)  
         self.allcors.append(corr)
         for y in self.depmap.keys():
-            k = self.getKey(y,m)
-
+            k = self.getKey(y,sm)
             if k in self.cs[y].keys():
                 self.cs[y][k].append(corr)
             else:
