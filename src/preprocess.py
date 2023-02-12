@@ -1,5 +1,7 @@
 from copy import deepcopy
 from bisect import bisect_left, bisect_right
+from pysat.formula import CNF
+from pysat.solvers import Solver
 
 global_n = 100000
 
@@ -303,25 +305,94 @@ def correctionClauses(b, modelmap, corsofar):
         corsofar[id] = op 
     return
 
-def addCorrectionClauses(corsofar, Xvar):
+# def addCorrectionClauses(corsofar, Xvar):
+#     sx = sorted(Xvar)
+#     corrclauses = []
+#     for id in corsofar.keys():
+#         x = getX(sx, id)
+#         for y in corsofar[id]:
+#             op = x.copy()
+#             op.append(y)
+#             corrclauses.append(op)
+#     return corrclauses
+
+def getorigX(sx, id):
+    res = []
+    for i in range(len(id)):
+        if id[i] == '1':
+            res.append(sx[i])
+        else:
+            res.append(-sx[i])
+    return res
+
+def addFunctionClauses(corsofar, Xvar, skf):
     sx = sorted(Xvar)
-    corrclauses = []
+    xclauses = []
+    n = len(corsofar.keys())
+    vnames = varnames(n)
+    ind = 0
     for id in corsofar.keys():
         x = getX(sx, id)
-        for y in corsofar[id]:
-            op = x.copy()
-            op.append(y)
-            corrclauses.append(op)
-    return corrclauses
+        var = vnames[ind]
+        ind+=1
+        xc = x.copy()
+        xc.append(var)
+        xclauses.append(xc)
 
-def getTempClause(b, Xvar):
-    clause = []
+        xx = getorigX(sx, id)
+
+        for x in xx:
+            xclauses.append([-var,x])
+
+        for y in corsofar[id]:
+            xclauses.append([-var,y])
+    
+    for y in skf.keys():
+        cc = getEquiMultiClause(y,skf[y])
+        for c in cc:
+            vs = vnames.copy()
+            vs.extend(c)
+            xclauses.append(vs)
+
+def getTempClause(core):
+    clause = [-x for x in core]
+    return clause
+
+def check_SAT(clauses):
+    s = Solver()
+    s.append_formula(clauses)
+    res = s.solve()
+    b = s.get_model()
+    return res, b
+
+def getSigma(b, Xvar):
+    sig = []
     for x in Xvar:
         if x in b:
-            clause.append(-x)
+            sig.append(x)
         else:
-            clause.append(x)
-    return clause
+            sig.append(-x)
+    return sig
+
+def get_unsat_core(b, phi, Xvar, psi):
+    exp = CNF(from_clauses=phi)
+    exp.extend(psi)
+    res, b = check_SAT(exp)
+
+    if not res:
+        print(" ERROR IN FUNCTION !!!!!!")
+        exit()
+    
+    sig = getSigma(b, Xvar)
+
+    s = Solver()
+    s.append_formula(exp)
+    res = s.solve(assumptions=sig)
+    if not res:
+        core = s.get_core()
+    
+    return core
+
 
 
 

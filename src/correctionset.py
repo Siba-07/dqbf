@@ -2,11 +2,11 @@ from copy import deepcopy
 from .preprocess import varnames
 
 class Correction:
-    def __init__(self, m, proj, clauses, Xvar, Yvar):
+    def __init__(self, m, proj, clauses, Xvar, Yvar, core):
         # print(y)
         # print(m)
         self.m = m
-        self.id = self.get_id()
+        self.id = self.get_id(core)
         self.ytoy_ = {}
         self.y_toy = {}
         self.yvars = {}
@@ -20,14 +20,20 @@ class Correction:
     def __str__(self) -> str:
         return self.id
 
-    def get_id(self):
+    def get_id(self, core):
         sm = sorted(self.m, key=abs)
         id = ""
         for x in self.m:
             if x > 0 :
-                id += "1"
+                if x in core:
+                    id += "1"
+                else:
+                    id += "*"
             else:
-                id += "0"
+                if x in core:
+                    id += "0"
+                else:
+                    id += "*"
 
         return id
 
@@ -75,34 +81,47 @@ class CorrectionSet:
         self.Xvar = deepcopy(Xvar)
         self.Yvar = deepcopy(Yvar)
     
-    def getKey(self,y,sm):
+    def addx(keys, x):
+        for k in keys:
+            if x > 0:
+                k += "1"
+            else:
+                k += "0"
+        return keys
+
+    def getKey(self,y,sm, core):
     #get key from model given y
         # print(sm)
-        key = ""
+        keys = [""]
         dep = self.depmap[y]
         # print(y, dep, sm)
         # print(dep)
         for x in sm:
             if abs(x) in dep:
-                if x > 0:
-                    key += "1"
+                if x in core: 
+                    keys = self.addx(keys, x)   
                 else:
-                    key += "0"
+                    k2 = deepcopy(keys)
+                    k2 = self.addx(k2, x)
+                    keys = self.addx(keys, -x)
+                    keys.extend(k2)
             else:
-                key += "#"
-        return key
+                for k in keys:
+                    k += "#"
+        return keys
 
     #new idea for each y maintain a dictionary, and then maintain a list of corrections and then 
-    def add(self,m):
+    def add(self,m, core):
         sm = sorted(m, key=abs)
-        corr = Correction(m , self.proj, self.clauses, self.Xvar, self.Yvar)  
+        corr = Correction(m , self.proj, self.clauses, self.Xvar, self.Yvar, core)  
         self.allcors.append(corr)
         for y in self.depmap.keys():
-            k = self.getKey(y,sm)
-            if k in self.cs[y].keys():
-                self.cs[y][k].append(corr)
-            else:
-                self.cs[y][k] = [corr]
+            keys = self.getKey(y,sm, core)
+            for k in keys:
+                if k in self.cs[y].keys():
+                    self.cs[y][k].append(corr)
+                else:
+                    self.cs[y][k] = [corr]
     
     def getcs(self):
         return self.cs

@@ -13,14 +13,6 @@ n = 10000
 
 import time
 
-def check_SAT(clauses):
-    s = Solver()
-    s.append_formula(clauses)
-    res = s.solve()
-    b = s.get_model()
-    return res, b
-
-
 def solver():
     print("parsing")
     start_time = time.time()
@@ -40,13 +32,13 @@ def solver():
     proj = getProjections(clauses, Xvar, Yvar, depmap)
     skf  = getSkolemFunctions(proj)
 
-    if (args.verbose >=1 ):
-        for y in proj.keys():
-            print("No of proj[y] clauses for {} =  {}".format(y, len(proj[y])))
-            if args.verbose >=2 : print("Projection function - {}".format(proj[y]))
-        for y in skf.keys():
-            print("No of skf[y] clauses for {} =  {}".format(y, len(skf[y])))
-            if args.verbose >=2 : print("Skolem functions = {}".format(skf[y]))
+    # if (args.verbose >=1 ):
+    #     for y in proj.keys():
+    #         print("No of proj[y] clauses for {} =  {}".format(y, len(proj[y])))
+    #         if args.verbose >=2 : print("Projection function - {}".format(proj[y]))
+    #     for y in skf.keys():
+    #         print("No of skf[y] clauses for {} =  {}".format(y, len(skf[y])))
+    #         if args.verbose >=2 : print("Skolem functions = {}".format(skf[y]))
     
     cs  = CorrectionSet(depmap, proj , clauses, Xvar, Yvar)
     corsofar = {}
@@ -55,9 +47,9 @@ def solver():
     exp = CNF(from_clauses=clauses)
     neg = exp.negate(topv = currn())
     updatemaxvar(neg.nv)
-    for y in Yvar:
-        neg.extend(getEquiMultiClause(y,skf[y]))
-    updatemaxvar(neg.nv)
+    # for y in Yvar:
+    #     neg.extend(getEquiMultiClause(y,skf[y]))
+    # updatemaxvar(neg.nv)
     corrno = 0
     th = 100
     tempclauses = []
@@ -65,15 +57,18 @@ def solver():
     ucind = 0
     corrclauses = []
     tc = []
+    gc = 0
+    lc = 0
     while True:
         corrno += 1
         # if(args.verbose >=1 ) : print("Inside loop, correction no. = {}".format(corrno))
         if cind == ucind : 
             allclauses = deepcopy(neg.clauses)
             # gk = time.time()
-            corrclauses = addCorrectionClauses(corsofar, Xvar)
+            functionclauses  = addFunctionClauses(corsofar, Xvar, skf)
+            #corrclauses = addCorrectionClauses(corsofar, Xvar)
             # if args.verbose >=3 : print("Time taken to add correction clauses = {}".format(time.time() - gk)) 
-            allclauses.extend(corrclauses)
+            allclauses.extend(functionclauses)
         # print(allclauses)
         if len(tc) != 0: 
             # print(tc)
@@ -83,13 +78,14 @@ def solver():
         # print(res)
         if res:
             b = cleanmodel(b, Xvar, Yvar)
+            core  = get_unsat_core(b, clauses, Xvar, functionclauses)
             at = time.time()
-            cs.add(b)
+            cs.add(b, core)
             #if args.verbose >= 3: print("Time taken to add correction ={}".format(time.time()- at))
             ucind+=1
             # if args.verbose >=1 : cs.printcs()
             if((ucind-cind) < th):
-                tc = getTempClause(b, Xvar)
+                tc = getTempClause(core)
                 continue
             # print(cind)
             # print(ucind)
@@ -124,6 +120,7 @@ def solver():
                     if args.verbose >= 3 : print("Time for updatecorrectionfinal call = {}".format(time.time() - cct))
 
                     #updateSkolems(bc, modelmap, skf, Xvar)
+                    lc += 1
                     if args.verbose >= 3 : print("Time elapsed for local correction = {}".format(time.time() - st)) 
                 else:
                     print("local correction failed")
@@ -134,11 +131,12 @@ def solver():
                     if args.verbose >= 3 : print("Time for getting global encoding = {}".format(jt - lt))
                     resx, bx = check_SAT(gg)
                     if args.verbose >= 3 : print("Time for global SAT call = {}".format(time.time() - jt))
-
                     if resx:
                         updateCorrectionsTemp(bx, modelmap, allcors)
                         correctionClauses(bx, modelmap, corsofar)
                         updateCorrectionsFinal(allcors)
+                        gc += 1
+
                         if args.verbose >= 3 : print("Time elapsed for global correction = {}".format(time.time() - lt)) 
                         #updateSkolems(bx, modelmap , skf, Xvar)
                     else:
@@ -168,6 +166,8 @@ def solver():
 
         cind = ucind
         tempclauses = []
+
+    print("Total Local corrections = {}, Global corrections = {}".format(lc, gc))
 
 
 if __name__ ==  "__main__":
