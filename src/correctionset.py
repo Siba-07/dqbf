@@ -39,6 +39,7 @@ class Correction:
 
     def getEncoding(self, clauses , Xvar, Yvar):
         enc = []
+        # print(clauses)
         for i in range(len(clauses)):
             k = clauses[i]
             flag = 0
@@ -47,8 +48,10 @@ class Correction:
                     flag =1
                     break  
             if not flag:
+                print(k)
                 enc.append([x for x in k if abs(x) not in Xvar])
         
+        # print(self.m, enc)
         newnames = varnames(len(Yvar))
         self.fy  = min(newnames)
         self.ly = max(newnames)
@@ -65,6 +68,8 @@ class Correction:
                 else:
                     enc[i][j] = -self.ytoy_[abs(k)]
         
+        print(self.m,enc)
+        # print(enc)
         return enc
 
 class CorrectionSet:
@@ -81,12 +86,12 @@ class CorrectionSet:
         self.Xvar = deepcopy(Xvar)
         self.Yvar = deepcopy(Yvar)
     
-    def addx(keys, x):
-        for k in keys:
+    def addx(self,keys, x):
+        for i in range(len(keys)):
             if x > 0:
-                k += "1"
+                keys[i] += "1"
             else:
-                k += "0"
+                keys[i] += "0"
         return keys
 
     def getKey(self,y,sm, core):
@@ -99,15 +104,15 @@ class CorrectionSet:
         for x in sm:
             if abs(x) in dep:
                 if x in core: 
-                    keys = self.addx(keys, x)   
+                    keys = self.addx(keys, x)  
                 else:
                     k2 = deepcopy(keys)
                     k2 = self.addx(k2, x)
                     keys = self.addx(keys, -x)
                     keys.extend(k2)
             else:
-                for k in keys:
-                    k += "#"
+                for i in range(len(keys)):
+                    keys[i] += "#"
         return keys
 
     #new idea for each y maintain a dictionary, and then maintain a list of corrections and then 
@@ -117,6 +122,8 @@ class CorrectionSet:
         self.allcors.append(corr)
         for y in self.depmap.keys():
             keys = self.getKey(y,sm, core)
+            # print(y)
+            # print(keys)
             for k in keys:
                 if k in self.cs[y].keys():
                     self.cs[y][k].append(corr)
@@ -132,7 +139,7 @@ class CorrectionSet:
             for k in cx[y].keys():
                 # print(k)
                 for c in cx[y][k]:
-                    print(y, k, c)
+                    print(y, k, c, c.yvars)
         # for y in self.depmap:
         #     k = self.getKey(y, m)
         #     print("{} with key {} has {} corrections".format(y, k, len(self.cs[y][k])))

@@ -33,7 +33,7 @@ def parse(inputfile):
             vars = line.strip("e").strip("\n").strip(" ").split(" ")[:-1]
             vars = list(map(int, list(vars)))
             for y in vars:
-                depmap[y] = Xvar
+                depmap[y] = []
             Yvar.extend(vars)
             continue
         if line.startswith("d"):
@@ -101,10 +101,13 @@ def getSkolemFunctions(oldproj):
     skf = {}
     proj = deepcopy(oldproj)
     for y in proj:
+        # if y == 9 : print(proj[y])
         skf[y] = [x for x in proj[y] if -y in x]
         for x in skf[y]:
             if -y in x:
                 x.remove(-y)
+            # if x == []:
+    
     return skf
 
 #a is a literal and f is a list
@@ -115,13 +118,19 @@ def getEquiSingleClause(a, f):
 
 #a is a literal and f is list of lists
 def getEquiMultiClause(a, f):
+    # if a ==9 : print(a,f)
     clauses = []
     gc = varnames(len(f))
     for i in range(len(f)):
         clauses.append([-a,gc[i]])
-        clauses += getEquiSingleClause(gc[i],f[i])
+        singleclause = getEquiSingleClause(gc[i],f[i])
+        # if a==9 : print(f[i])
+        # if a==9 : print(singleclause)
+        # if a == 9 : print("----")
+        clauses += singleclause
     gc = [-x for x in gc]
     clauses.append(gc + [a])
+    # if a == 9 : print(clauses)
     return clauses
 
 def cleanmodel(m, Xvar, Yvar):
@@ -140,8 +149,15 @@ def getJointEncoding(x):
                 # yset.update(set(cors[0].y_toy.keys()))
                 # return je, modelmap
             
-            for i in range(len(cors)):
+            # print(y,k)
+            # for c in cors:
+            #     print(c.id)
+            
+            # print("^^^^^^^^^^^^^^^^^^^^^")
+                
+            for i in range(1):
                 for j in range((i+1),len(cors)):
+                    # print(cors[i].id, cors[j].id, "HELLO")
                     if(cors[i].id in modelmap.keys()):
                         cor1 = modelmap[cors[i].id]
                     else:
@@ -159,6 +175,7 @@ def getJointEncoding(x):
                     y1 = cor1.ytoy_[y]
                     y2 = cor2.ytoy_[y]
                     je.extend([[-y1,y2],[y1,-y2]])
+                   
     return je, modelmap
     
 def classifyCs(x):
@@ -172,12 +189,12 @@ def classifyCs(x):
             cors = x[y][k]
             for c in cors:
                 if(c.corrected == 0):
-                    if y in ucx[y].keys():
+                    if k in ucx[y].keys():
                         ucx[y][k].append(c)
                     else:
                         ucx[y][k] = [c] 
                 else:
-                    if y in cx[y].keys():
+                    if k in cx[y].keys():
                         cx[y][k].append(c)
                     else:
                         cx[y][k] = [c]
@@ -194,14 +211,16 @@ def updateCorrectionsTemp(b, modelmap, cors):
     bm = sorted(b, key=abs)
     bk = [abs(y) for y in b]
     bs = sorted(bk)
-
+    # print(len(cors))
     for c in cors:
+        # print(c.id)
         usedcor = modelmap[c.id]
         ymin = usedcor.fy
         ymax = usedcor.ly
         i1 = bisect_left(bs, ymin)
         i2 = bisect_right(bs, ymax)
         breq = bm[i1:i2]
+        # print(breq)
         # print(breq, usedcor.y_toy.keys())
         for y in c.yvars.keys():
             yvar = usedcor.ytoy_[abs(y)]
@@ -233,6 +252,8 @@ def checkModel(b, modelmap, cx, ucx):
 # modelmap : id -> corr
     for y in cx.keys():
         for k in cx[y].keys():
+            # print("HOOOO")
+            # print(cx[y][k])
             cor1 = cx[y][k]
             if k in ucx[y].keys():
                 cor2 = ucx[y][k]
@@ -287,6 +308,7 @@ def correctionClauses(b, modelmap, corsofar):
     bk = [abs(y) for y in b]
     bs = sorted(bk)
     for id in modelmap.keys():
+        # print(id)
         corr = modelmap[id]
         op = []
         ymin = corr.fy
@@ -349,10 +371,12 @@ def addFunctionClauses(corsofar, Xvar, skf):
     
     for y in skf.keys():
         cc = getEquiMultiClause(y,skf[y])
+        # if y ==9 : print(y, cc)
         for c in cc:
             vs = vnames.copy()
             vs.extend(c)
             xclauses.append(vs)
+    return xclauses
 
 def getTempClause(core):
     clause = [-x for x in core]
@@ -377,13 +401,14 @@ def getSigma(b, Xvar):
 def get_unsat_core(b, phi, Xvar, psi):
     exp = CNF(from_clauses=phi)
     exp.extend(psi)
-    res, b = check_SAT(exp)
+    res, _ = check_SAT(exp)
 
     if not res:
         print(" ERROR IN FUNCTION !!!!!!")
         exit()
     
     sig = getSigma(b, Xvar)
+    # print("sig = ",sig)
 
     s = Solver()
     s.append_formula(exp)
@@ -392,6 +417,58 @@ def get_unsat_core(b, phi, Xvar, psi):
         core = s.get_core()
     
     return core
+
+#
+def unate_check(f1, f2):
+    vars = varnames(1)
+    clauses = deepcopy(f1)
+    # print(vars[0])
+    clauses.append([-vars[0]])
+    # clauses.append(getEquiMultiClause(vars[0], f1))
+    clauses.extend(getEquiMultiClause(vars[0], f2))
+    res, _ = check_SAT(clauses)
+    # print(clauses)
+    # print(res)
+    return res
+
+def unate_test(Xvar, Yvar, clauses, depmap):
+    unate_map = {}
+    flag = 1
+    while flag:
+        flag = 0
+        Ys = deepcopy(Yvar)
+        print(Ys)
+        for y in Ys:
+            f1 = []
+            f2 = []
+            for c in clauses:
+                c_ = c
+                if y in c:
+                    c_.remove(y)
+                    f2.append(c_)
+                elif -y in c:
+                    c_.remove(-y)
+                    f1.append(c_)
+                else:
+                    f1.append(c_)
+                    f2.append(c_)
+        
+            if not unate_check(f1, f2):
+                # print("here")
+                clauses = deepcopy(f1)
+                Yvar.remove(y)
+                del depmap[y]  
+                unate_map[y] = 0 
+                flag = 1 
+            elif not unate_check(f2, f1):
+                # print("here")
+                clauses = deepcopy(f2)
+                Yvar.remove(y)
+                del depmap[y]
+                unate_map[y] = 1
+                flag = 1
+    
+    return unate_map, clauses
 
 
 

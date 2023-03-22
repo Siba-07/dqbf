@@ -17,6 +17,27 @@ def solver():
     print("parsing")
     start_time = time.time()
     Xvar, Yvar, depmap, clauses, ind = parse(args.input)
+
+    unate_map, clauses = unate_test(Xvar, Yvar, clauses, depmap)
+    print(unate_map)
+    if len(Yvar) == 0:
+        print("UNATE SOLVED")
+        print(unate_map)
+    #check SAT
+    # res, b = check_SAT(clauses)
+    # print(res)
+    # print(b)
+    # dflag = 0
+    # for c in clauses:
+    #     flag = 0
+    #     for x in c:
+    #         if x < 0 :
+    #             flag = 1
+    #     if not flag:
+    #         print(c)
+    #         dflag = 1 
+    
+    # print(dflag)
     
     if (args.verbose >= 1):
         print("Xvars : {}".format(Xvar))
@@ -33,10 +54,11 @@ def solver():
     skf  = getSkolemFunctions(proj)
 
     # if (args.verbose >=1 ):
-    #     for y in proj.keys():
-    #         print("No of proj[y] clauses for {} =  {}".format(y, len(proj[y])))
-    #         if args.verbose >=2 : print("Projection function - {}".format(proj[y]))
+    #     # for y in proj.keys():
+    #     #     print("No of proj[y] clauses for {} =  {}".format(y, len(proj[y])))
+    #     #     if args.verbose >=2 : print("Projection function - {}".format(proj[y]))
     #     for y in skf.keys():
+    #         # if y != 9 : continue
     #         print("No of skf[y] clauses for {} =  {}".format(y, len(skf[y])))
     #         if args.verbose >=2 : print("Skolem functions = {}".format(skf[y]))
     
@@ -46,12 +68,14 @@ def solver():
     # initialize
     exp = CNF(from_clauses=clauses)
     neg = exp.negate(topv = currn())
-    updatemaxvar(neg.nv)
+    updatemaxvar(neg.nv + 1)
+    # print(neg.nv)
     # for y in Yvar:
-    #     neg.extend(getEquiMultiClause(y,skf[y]))
-    # updatemaxvar(neg.nv)
+    #     clause = getEquiMultiClause(y,skf[y])
+    #     neg.extend(clause)
+    # updatemaxvar(neg.nv + 1)
     corrno = 0
-    th = 100
+    th = 10
     tempclauses = []
     cind = 0
     ucind = 0
@@ -64,8 +88,10 @@ def solver():
         # if(args.verbose >=1 ) : print("Inside loop, correction no. = {}".format(corrno))
         if cind == ucind : 
             allclauses = deepcopy(neg.clauses)
+            # print(allclauses)
             # gk = time.time()
             functionclauses  = addFunctionClauses(corsofar, Xvar, skf)
+            # if(args.verbose >= 1) : print(functionclauses)
             #corrclauses = addCorrectionClauses(corsofar, Xvar)
             # if args.verbose >=3 : print("Time taken to add correction clauses = {}".format(time.time() - gk)) 
             allclauses.extend(functionclauses)
@@ -78,7 +104,9 @@ def solver():
         # print(res)
         if res:
             b = cleanmodel(b, Xvar, Yvar)
+            # print(b)
             core  = get_unsat_core(b, clauses, Xvar, functionclauses)
+            # print(core)
             at = time.time()
             cs.add(b, core)
             #if args.verbose >= 3: print("Time taken to add correction ={}".format(time.time()- at))
@@ -90,33 +118,49 @@ def solver():
             # print(cind)
             # print(ucind)
             print("ENTERING SOLVER ...")
-            
+            # print("ucind",ucind)
+
             x = cs.getcs()
             cx, ucx = classifyCs(x) ########### set this dynamically #############
+            cs.printcs(ucx)
+            # cs.printcs(x)
+            # print("-------")
             # cs.printcs(ucx)
+
+
+
+            # print("Done")
             st = time.time()
             gg, modelmap = getJointEncoding(ucx)
             jt = time.time()
             if args.verbose >= 3 : print("Time for getting local encoding = {}".format(jt - st))
             resc , bc = check_SAT(gg)
+            # print(gg)
+            # print("-------")
+            # print(bc)
+            # break
             satt = time.time()
             if args.verbose >= 3 : print("Time for SAT call = {}".format(satt - jt))
             allcors = cs.allcors
             # for c in allcors:
             #     print(c)
             if resc:
-                updateCorrectionsTemp(bc, modelmap, allcors[cind+1:ucind])
+                # for c in allcors[cind+1:ucind]:
+                #     print(c.id)
+                
+                updateCorrectionsTemp(bc, modelmap, allcors[cind:ucind])
                 if args.verbose >= 3 : print("Time for updateCorrtemp call = {}".format(time.time() - satt))
 
                 # print(checkModel(bc, modelmap, cx))
                 ct = time.time()
                 if checkModel(bc, modelmap, cx , ucx):
+                    cs.printcs(ucx)
                     if args.verbose >= 3 : print("Time for checking model ={}".format(time.time() - ct))
                     cmt = time.time()
                     correctionClauses(bc, modelmap, corsofar)
                     if args.verbose >= 3 : print("Time for correctionclauses call = {}".format(time.time() - cmt))
                     cct = time.time()
-                    updateCorrectionsFinal(allcors[cind+1:ucind])
+                    updateCorrectionsFinal(allcors[cind:ucind])
                     if args.verbose >= 3 : print("Time for updatecorrectionfinal call = {}".format(time.time() - cct))
 
                     #updateSkolems(bc, modelmap, skf, Xvar)
@@ -147,6 +191,7 @@ def solver():
                 break
         else:
             x = cs.getcs()
+            # cs.printcs(x)
             allcors = cs.allcors
             gg, modelmap = getJointEncoding(x)
             resx, bx = check_SAT(gg)
@@ -158,9 +203,8 @@ def solver():
                 print("here3")
                 break
 
-            for y in skf.keys():
-                print(y)
-                print(skf[y])
+            for id in corsofar.keys():
+                print(id, corsofar[id])
             print("SAT")
             return
 
