@@ -6,6 +6,7 @@ from src.update_correction import *
 from src.joint_encoding import *
 from src.utils import *
 from src.correctionset import CorrectionSet
+from src.debug_utils import *
 
 from pysat.formula import CNF
 from pysat.solvers import Solver
@@ -22,9 +23,11 @@ def solver():
 
     unate_map, clauses = unate_test(Xvar, Yvar, clauses, depmap)
     print(unate_map)
+    # print(clauses[0])
     if len(Yvar) == 0:
         print("UNATE SOLVED")
         print(unate_map)
+        exit()
     #check SAT
     # res, b = check_SAT(clauses)
     # print(res)
@@ -38,7 +41,11 @@ def solver():
     #     if not flag:
     #         print(c)
     #         dflag = 1 
-    
+    # for c in clauses:
+    #     if 9 in c or -10 in c or -19 in c:
+    #         continue
+    #     else:
+    #         print(c)
     # print(dflag)
     
     if (args.verbose >= 1):
@@ -53,16 +60,17 @@ def solver():
                 print("FOR y = {}, dependancy vars are {}".format(y, depmap[y]))
 
     proj = getProjections(clauses, Xvar, Yvar, depmap)
-    skf  = getSkolemFunctions(proj)
+    skf  = getSkolemOne(proj)
+    skf2 = getSkolemZero(proj)
 
     # if (args.verbose >=1 ):
     #     # for y in proj.keys():
     #     #     print("No of proj[y] clauses for {} =  {}".format(y, len(proj[y])))
     #     #     if args.verbose >=2 : print("Projection function - {}".format(proj[y]))
-    #     for y in skf.keys():
-    #         # if y != 9 : continue
-    #         print("No of skf[y] clauses for {} =  {}".format(y, len(skf[y])))
-    #         if args.verbose >=2 : print("Skolem functions = {}".format(skf[y]))
+    # for y in skf.keys():
+    #     # if y != 9 : continue
+    #     print("No of skf[y] clauses for {} =  {}".format(y, len(skf[y])))
+    #     if args.verbose >=2 : print("Skolem functions = {}".format(skf[y]))
     
     cs  = CorrectionSet(depmap, proj , clauses, Xvar, Yvar)
     corsofar = {}
@@ -77,7 +85,7 @@ def solver():
     #     neg.extend(clause)
     # updatemaxvar(neg.nv + 1)
     corrno = 0
-    th = 10
+    th = 30
     tempclauses = []
     cind = 0
     ucind = 0
@@ -108,9 +116,11 @@ def solver():
             b = cleanmodel(b, Xvar, Yvar)
             # print(b)
             core  = get_unsat_core(b, clauses, Xvar, functionclauses)
+
+            stable_y, stable_eval = get_stable_y(proj, skf, skf2, b)
             # print(core)
             at = time.time()
-            cs.add(b, core)
+            cs.add(b, core, stable_y, stable_eval)
             #if args.verbose >= 3: print("Time taken to add correction ={}".format(time.time()- at))
             ucind+=1
             # if args.verbose >=1 : cs.printcs()
@@ -124,7 +134,7 @@ def solver():
 
             x = cs.getcs()
             cx, ucx = classifyCs(x) ########### set this dynamically #############
-            cs.printcs(ucx)
+            # cs.printcs(ucx)
             # cs.printcs(x)
             # print("-------")
             # cs.printcs(ucx)
@@ -156,14 +166,15 @@ def solver():
                 # print(checkModel(bc, modelmap, cx))
                 ct = time.time()
                 if checkModel(bc, modelmap, cx , ucx):
-                    cs.printcs(ucx)
+                    # cs.printcs(ucx)
                     if args.verbose >= 3 : print("Time for checking model ={}".format(time.time() - ct))
                     cmt = time.time()
-                    correctionClauses(bc, modelmap, corsofar)
+                    correctionClauses(bc, modelmap, corsofar, depmap, Xvar)
                     if args.verbose >= 3 : print("Time for correctionclauses call = {}".format(time.time() - cmt))
                     cct = time.time()
                     updateCorrectionsFinal(allcors[cind:ucind])
                     if args.verbose >= 3 : print("Time for updatecorrectionfinal call = {}".format(time.time() - cct))
+                    print("HOLA", len(corsofar.keys()))
 
                     #updateSkolems(bc, modelmap, skf, Xvar)
                     lc += 1
@@ -179,36 +190,67 @@ def solver():
                     if args.verbose >= 3 : print("Time for global SAT call = {}".format(time.time() - jt))
                     if resx:
                         updateCorrectionsTemp(bx, modelmap, allcors)
-                        correctionClauses(bx, modelmap, corsofar)
+                        correctionClauses(bx, modelmap, corsofar, depmap, Xvar)
                         updateCorrectionsFinal(allcors)
                         gc += 1
 
                         if args.verbose >= 3 : print("Time elapsed for global correction = {}".format(time.time() - lt)) 
                         #updateSkolems(bx, modelmap , skf, Xvar)
                     else:
-                        print("here1")
+                        print("UNSAT : Global correction Failed")
                         break
             else:
-                print("here2")
+                print("UNSAT : Local Correction Failed")
                 break
         else:
-            x = cs.getcs()
-            # cs.printcs(x)
-            allcors = cs.allcors
-            gg, modelmap = getJointEncoding(x)
-            resx, bx = check_SAT(gg)
-            if resx:
-                updateCorrectionsTemp(bx, modelmap, allcors)
-                correctionClauses(bx, modelmap, corsofar)
-                updateCorrectionsFinal(allcors)
-            else:
-                print("here3")
-                break
+            print(cind, ucind)
+            if cind == ucind:
+                sx = sorted(Xvar)
+                st = 0
+                et = 1<<16
+                for i in range(st, et):
+                    if i%1000 == 0 :
+                        print(i)
+                    id = f'{i:016b}'
+                    xc = getorigX(sx, id)
+                    if id in corsofar.keys():
+                        ops = []
+                        for x,y in corsofar[id]:
+                            ops.append(x)
+                        xc.extend(ops)
+                    else:
+                        ys = []
+                        for y in Yvar:
+                            # print(y,skf[y])
+                            op = evaluate(skf[y], xc)
+                            if op :
+                                ys.append(y)
+                            else:
+                                ys.append(-y)
+                        xc.extend(ys)
+                    if not evaluate(clauses, xc):
+                        print(xc)
+                        print("ERRROR")
 
-            for id in corsofar.keys():
-                print(id, corsofar[id])
-            print("SAT")
-            return
+                print(len(corsofar.keys()))
+                for id in corsofar.keys():
+                    print(id, corsofar[id])
+                print("SAT")
+                return
+            else:
+                x = cs.getcs()
+                # cs.printcs(x)
+                allcors = cs.allcors
+                gg, modelmap = getJointEncoding(x)
+                resx, bx = check_SAT(gg)
+                # print(resx)
+                if resx:
+                    updateCorrectionsTemp(bx, modelmap, allcors)
+                    correctionClauses(bx, modelmap, corsofar, depmap, Xvar)
+                    updateCorrectionsFinal(allcors)
+                else:
+                    print("UNSAT : Global Correction Failed")
+                    break
 
         cind = ucind
         tempclauses = []

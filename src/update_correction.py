@@ -8,6 +8,7 @@ def updateCorrectionsTemp(b, modelmap, cors):
     # print(len(cors))
     for c in cors:
         # print(c.id)
+        # print(modelmap.keys())
         usedcor = modelmap[c.id]
         ymin = usedcor.fy
         ymax = usedcor.ly
@@ -54,14 +55,28 @@ def checkModel(b, modelmap, cx, ucx):
             if yold*ynew < 0 : return False
 
     return True
-
-def correctionClauses(b, modelmap, corsofar):
+def getx(id, dep, Xvar):
+    xc = []
+    sx = sorted(Xvar)
+    for i in range(len(id)):
+        ii = id[i]
+        if sx[i] not in dep:
+            continue
+        if ii == '1':
+            xc.append(sx[i])
+        elif ii == '0':
+            xc.append(-sx[i])
+    return xc
+        
+def correctionClauses(b, modelmap, corsofar, depmap, Xvar):
     bm = sorted(b, key=abs)
     bk = [abs(y) for y in b]
     bs = sorted(bk)
     for id in modelmap.keys():
         # print(id)
         corr = modelmap[id]
+        # print(id, corr.id)
+
         op = []
         ymin = corr.fy
         ymax = corr.ly
@@ -71,10 +86,11 @@ def correctionClauses(b, modelmap, corsofar):
         for k in corr.y_toy.keys():
             y_ = k
             y = corr.y_toy[y_]
+            xc = getx(corr.id, depmap[y], Xvar)
             if y_ in breq:
-                op.append(y)
+                op.append((y, xc))
             else:
-                op.append(-y)
+                op.append((-y, xc))
 
         corsofar[id] = op 
     return

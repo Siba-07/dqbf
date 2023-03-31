@@ -4,7 +4,35 @@ def printmap(x):
         print("--")
         print(len(x[i]))
 
+def printCNF(clauses, filename):
+    f = open(filename,"w")
+    l = len(clauses)
+    mm = 0
+    for c in clauses:
+        for v in c:
+            mm = max(mm, abs(v))
+    
+    f.write("p cnf {} {}".format(l,mm))
 
+    for c in clauses:
+        str = ' '.join(c)
+        str += " 0"
+        f.write(str)
+    
+    f.close()
+
+def evaluate(ff, xx):
+    # print(ff)
+    for c in ff:
+        flag = 0
+        for x in xx:
+            if x in c:
+                flag = 1
+                break
+        if flag == 0 :
+            # print(c,xx)
+            return 0
+    return 1       
 # def getSize(x):
 #     sz = 0
 #     for y in x.keys():

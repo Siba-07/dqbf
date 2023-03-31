@@ -29,7 +29,8 @@ def parse(inputfile):
             vars = line.strip("e").strip("\n").strip(" ").split(" ")[:-1]
             vars = list(map(int, list(vars)))
             for y in vars:
-                depmap[y] = []
+                currx = deepcopy(Xvar)
+                depmap[y] = currx
             Yvar.extend(vars)
             continue
         if line.startswith("d"):
@@ -79,19 +80,32 @@ def getProjections(clauses, Xvar, Yvar, depmap):
         proj[y] = proj_y
     return proj     
 
-def getSkolemFunctions(oldproj):
+def getSkolemOne(oldproj):
     skf = {}
     proj = deepcopy(oldproj)
     for y in proj:
         # if y == 9 : print(proj[y])
-        skf[y] = [x for x in proj[y] if -y in x]
+        skf[y] = [x for x in proj[y] if y not in x]
         for x in skf[y]:
             if -y in x:
                 x.remove(-y)
             # if x == []:
     
     return skf
-    #
+
+def getSkolemZero(oldproj):
+    skf = {}
+    proj = deepcopy(oldproj)
+    for y in proj:
+        # if y == 9 : print(proj[y])
+        skf[y] = [x for x in proj[y] if -y not in x]
+        for x in skf[y]:
+            if y in x:
+                x.remove(y)
+            # if x == []:
+    
+    return skf
+    
 def unate_check(f1, f2):
     vars = varnames(1)
     clauses = deepcopy(f1)
@@ -110,11 +124,12 @@ def unate_test(Xvar, Yvar, clauses, depmap):
     while flag:
         flag = 0
         Ys = deepcopy(Yvar)
-        print(Ys)
+        # print(Ys)
         for y in Ys:
             f1 = []
             f2 = []
-            for c in clauses:
+            cl = deepcopy(clauses)
+            for c in cl:
                 c_ = c
                 if y in c:
                     c_.remove(y)
@@ -128,20 +143,20 @@ def unate_test(Xvar, Yvar, clauses, depmap):
         
             if not unate_check(f1, f2):
                 # print("here")
-                clauses = deepcopy(f1)
+                clauses = deepcopy(f2)
                 Yvar.remove(y)
                 del depmap[y]  
                 unate_map[y] = 0 
                 flag = 1 
             elif not unate_check(f2, f1):
                 # print("here")
-                clauses = deepcopy(f2)
+                clauses = deepcopy(f1)
                 Yvar.remove(y)
                 del depmap[y]
                 unate_map[y] = 1
                 flag = 1
-    
-    return unate_map, clauses
+
+    return unate_map, clauses    
 
 def classifyCs(x):
     # print(x)

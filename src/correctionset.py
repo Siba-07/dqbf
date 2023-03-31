@@ -2,7 +2,7 @@ from copy import deepcopy
 from .preprocess import varnames
 
 class Correction:
-    def __init__(self, m, proj, clauses, Xvar, Yvar, core):
+    def __init__(self, m, proj, clauses, Xvar, Yvar, core, stable_y, stable_eval):
         # print(y)
         # print(m)
         self.m = m
@@ -12,10 +12,12 @@ class Correction:
         self.yvars = {}
         self.fy = -1
         self.ly = -1
-        self.enc = self.getEncoding(clauses, Xvar, Yvar)
+        self.enc = self.getEncoding(clauses, Xvar, Yvar, stable_y, stable_eval)
         self.corrected = 0
         for y in Yvar:
             self.yvars[abs(y)] = abs(y)
+            if y in stable_y:
+                self.yvars[abs(y)] = stable_eval[y]
     
     def __str__(self) -> str:
         return self.id
@@ -37,19 +39,27 @@ class Correction:
 
         return id
 
-    def getEncoding(self, clauses , Xvar, Yvar):
+    def getEncoding(self, clauses , Xvar, Yvar, stable_y, stable_eval):
         enc = []
         # print(clauses)
+        # print(stable_y)
+        st_y = []
+        # print(clauses)
+        for y in stable_y:
+            st_y.append(stable_eval[y])
+        # print(st_y)
         for i in range(len(clauses)):
             k = clauses[i]
             flag = 0
             for x in k:
-                if x in self.m:
-                    flag =1
+                if (x in self.m) or (x in st_y):
+                    flag = 1
                     break  
             if not flag:
-                print(k)
-                enc.append([x for x in k if abs(x) not in Xvar])
+                # print("here")
+                # print(k)
+                # print([x for x in k if (abs(x) not in Xvar) and (abs(x) not in st_y)])
+                enc.append([x for x in k if (abs(x) not in Xvar) and (abs(x) not in st_y)])
         
         # print(self.m, enc)
         newnames = varnames(len(Yvar))
@@ -68,7 +78,7 @@ class Correction:
                 else:
                     enc[i][j] = -self.ytoy_[abs(k)]
         
-        print(self.m,enc)
+        # print(self.m,enc)
         # print(enc)
         return enc
 
@@ -85,6 +95,7 @@ class CorrectionSet:
         self.clauses = deepcopy(clauses)
         self.Xvar = deepcopy(Xvar)
         self.Yvar = deepcopy(Yvar)
+
     
     def addx(self,keys, x):
         for i in range(len(keys)):
@@ -116,11 +127,14 @@ class CorrectionSet:
         return keys
 
     #new idea for each y maintain a dictionary, and then maintain a list of corrections and then 
-    def add(self,m, core):
+    def add(self,m, core, stable_y, stable_eval):
         sm = sorted(m, key=abs)
-        corr = Correction(m , self.proj, self.clauses, self.Xvar, self.Yvar, core)  
+        corr = Correction(m , self.proj, self.clauses, self.Xvar, self.Yvar, core, stable_y, stable_eval)  
         self.allcors.append(corr)
         for y in self.depmap.keys():
+            if y in stable_y:
+                continue
+
             keys = self.getKey(y,sm, core)
             # print(y)
             # print(keys)
@@ -137,7 +151,7 @@ class CorrectionSet:
         for y in cx.keys():
             # print(y)
             for k in cx[y].keys():
-                # print(k)
+                # print(len(cx[y][k]))
                 for c in cx[y][k]:
                     print(y, k, c, c.yvars)
         # for y in self.depmap:

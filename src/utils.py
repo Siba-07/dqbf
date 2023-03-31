@@ -78,7 +78,7 @@ def get_unsat_core(b, phi, Xvar, psi):
     res = s.solve(assumptions=sig)
     if not res:
         core = s.get_core()
-    
+    # print(core)
     return core
 
 def getX(sx, id):
@@ -92,6 +92,8 @@ def getX(sx, id):
 
 def getorigX(sx, id):
     res = []
+    # print(len(sx))
+    # print(sx)
     for i in range(len(id)):
         if id[i] == '1':
             res.append(sx[i])
@@ -102,30 +104,36 @@ def getorigX(sx, id):
 def addFunctionClauses(corsofar, Xvar, skf):
     sx = sorted(Xvar)
     xclauses = []
-    n = len(corsofar.keys())
+    n = len(corsofar.keys())*len(skf.keys())
     vnames = varnames(n)
     ind = 0
+
+    yvs = {}
+    for y in skf.keys():
+        yvs[y] = []
+
     for id in corsofar.keys():
-        x = getX(sx, id)
-        var = vnames[ind]
-        ind+=1
-        xc = x.copy()
-        xc.append(var)
-        xclauses.append(xc)
+        for y,xg in corsofar[id]:
+            x = [-v for  v in xg]
+            var = vnames[ind]
+            ind+=1
+            xc = x.copy()
+            xc.append(var)
+            xclauses.append(xc)
+            
+            xx = xg.copy()
 
-        xx = getorigX(sx, id)
-
-        for x in xx:
-            xclauses.append([-var,x])
-
-        for y in corsofar[id]:
+            for xv in  xx:
+                xclauses.append([-var,xv])
+            
             xclauses.append([-var,y])
+            yvs[abs(y)].append(var)
     
     for y in skf.keys():
         cc = getEquiMultiClause(y,skf[y])
         # if y ==9 : print(y, cc)
         for c in cc:
-            vs = vnames.copy()
+            vs = yvs[y].copy()
             vs.extend(c)
             xclauses.append(vs)
     return xclauses
@@ -133,3 +141,33 @@ def addFunctionClauses(corsofar, Xvar, skf):
 def getTempClause(core):
     clause = [-x for x in core]
     return clause
+
+def evaluate(y, skf, m):
+    flag = 0
+    for c in skf[y]:
+        cflag = 0
+        for x in c:
+            if x in m:
+                cflag = 1
+                break
+        if not cflag:
+            flag = 1
+            break
+    if flag:
+        return 0
+    else:
+        return 1
+
+def get_stable_y(proj, skf1, skf2, m):
+    stable_y = []
+    stable_eval = {}
+    
+    for y in proj:
+        eval1 = evaluate(y, skf1, m)
+        eval2 = evaluate(y, skf2, m)
+
+        if eval1 or eval2:
+            stable_y.append(y)
+            stable_eval[y] = eval1
+    
+    return stable_y, stable_eval
