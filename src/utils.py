@@ -45,6 +45,36 @@ def cleanmodel(m, Xvar, Yvar):
     clean = [x for x in m if abs(x) in Xvar]
     return clean
 
+def process_model(b, Xvar, Yvar, skf, skf2, proj, cs, ucs, clauses, functionclauses):
+    b = cleanmodel(b, Xvar, Yvar)
+    core  = get_unsat_core(ucs, b, clauses, Xvar, functionclauses)
+    stable_y, stable_eval = get_stable_y(proj, skf, skf2, b)
+    cs.add(b, core, stable_y, stable_eval)
+    return core
+
+def incremental_SAT(allclauses, orig_clauses, n, Xvar, Yvar, functionclauses, skf1, skf2, proj, cs):
+    s = Solver(name='g4', incr = True)
+    s.append_formula(allclauses)
+    
+    #for handling UNSAT cores in incremental way
+    exp = CNF(from_clauses = orig_clauses)
+    exp.extend(functionclauses)
+    ucs = Solver()
+    ucs.append_formula(exp)
+
+    for i in range(n):
+        # print(i)
+        res = s.solve()
+        if not res:
+            return i
+        b = s.get_model()
+        # print(b)
+        core = process_model(b, Xvar, Yvar, skf1, skf2, proj, cs, ucs, orig_clauses, functionclauses)
+        tc = getTempClause(core)
+        if len(tc) != 0:
+            s.add_clause(tc)
+    return n
+
 def check_SAT(clauses):
     s = Solver()
     s.append_formula(clauses)
@@ -61,21 +91,20 @@ def getSigma(b, Xvar):
             sig.append(-x)
     return sig
 
-def get_unsat_core(b, phi, Xvar, psi):
-    exp = CNF(from_clauses=phi)
-    exp.extend(psi)
-    res, _ = check_SAT(exp)
+def get_unsat_core(s, b, phi, Xvar, psi):
+    # exp = CNF(from_clauses=phi)
+    # exp.extend(psi)
+    # res, _ = check_SAT(exp)
 
-    if not res:
-        print(" ERROR IN FUNCTION !!!!!!")
-        exit()
+    # if not res:
+    #     print(" ERROR IN FUNCTION !!!!!!")
+    #     exit()
     
     sig = getSigma(b, Xvar)
     # print("sig = ",sig)
 
-    s = Solver()
-    s.append_formula(exp)
     res = s.solve(assumptions=sig)
+    # print(res)
     if not res:
         core = s.get_core()
     # print(core)

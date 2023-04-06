@@ -94,77 +94,47 @@ def solver():
     neg = exp.negate(topv = currn())
     updatemaxvar(neg.nv + 1)
    
-    corrno = 0
     th = 100
-    tempclauses = []
     cind = 0
     ucind = 0
     corrclauses = []
     tc = []
     gc = 0
     lc = 0
+    
     while True:
-        corrno += 1
-        if cind == ucind : 
-            allclauses = deepcopy(neg.clauses)
-            functionclauses  = addFunctionClauses(corsofar, Xvar, skf)
-            allclauses.extend(functionclauses)
-
-        if len(tc) != 0: 
-            allclauses.append(tc)
-
-        res, b = check_SAT(allclauses)
-        print("SAT CALL")
-        if res:
-            b = cleanmodel(b, Xvar, Yvar)
-            core  = get_unsat_core(b, clauses, Xvar, functionclauses)
-            stable_y, stable_eval = get_stable_y(proj, skf, skf2, b)
-            cs.add(b, core, stable_y, stable_eval)
-            ucind+=1
-
-            if((ucind-cind) < th):
-                tc = getTempClause(core)
-                continue
-
-            print("ENTERING SOLVER ...")
-            # print("ucind",ucind)
-
-            x = cs.getcs()
-            cx, ucx = classifyCs(x) ########### set this dynamically ############
-
-            # cs.printcs(ucx)
-            reslocal = tryCorrection(ucx, corsofar, Xvar, depmap, cind, ucind, cs, True)
-
-            if not reslocal:
-                print("Local correction failed")
-                resglobal = tryCorrection(x, corsofar, Xvar, depmap, 0, ucind, cs, False)
-                if resglobal:
-                    gc += 1
-                else:
-                    print("UNSAT: Global Correction Failed")
-                    break
-            else:
-                lc += 1
-        else:
-            print(cind, ucind)
-            if cind == ucind:
-                print(len(corsofar.keys()))
-                for id in corsofar.keys():
-                    print(id, corsofar[id])
-                print("SAT")
-                return
-            else:
-                x = cs.getcs()
-                resglobal = tryCorrection(x, corsofar, Xvar, depmap, cind, ucind, cs, False)
-
-                if not resglobal : 
-                    print("UNSAT: Global Correction Failed")
-                    break
-
         cind = ucind
-        tempclauses = []
+        allclauses = deepcopy(neg.clauses)
+        functionclauses  = addFunctionClauses(corsofar, Xvar, skf)
+        allclauses.extend(functionclauses)
+        
+        i = incremental_SAT(allclauses,clauses, th, Xvar, Yvar, functionclauses, skf, skf2, proj, cs)
+        ucind = ucind + i
 
-    print("Total Local corrections = {}, Global corrections = {}".format(lc, gc))
+        if cind == ucind:
+            print(len(corsofar.keys()))
+            for id in corsofar.keys():
+                print(id, corsofar[id])
+            print("SAT")
+            return
+
+        print("ENTERING SOLVER ...")
+        x = cs.getcs()
+        cx, ucx = classifyCs(x) ########### set this dynamically ############
+
+        reslocal = tryCorrection(ucx, corsofar, Xvar, depmap, cind, ucind, cs, True)
+
+        if not reslocal:
+            print("Local correction failed")
+            resglobal = tryCorrection(x, corsofar, Xvar, depmap, 0, ucind, cs, False)
+            if resglobal:
+                gc += 1
+            else:
+                print("UNSAT: Global Correction Failed")
+                break
+        else:
+            lc += 1
+        print("Total Local corrections = {}, Global corrections = {}".format(lc, gc))
 
 
 if __name__ ==  "__main__":
