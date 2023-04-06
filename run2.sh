@@ -1,4 +1,4 @@
-dir=./dqbftc
+dir=./uniquetc
 rm -r op
 mkdir op
 for entry in "$dir"/*

@@ -1,0 +1,39 @@
+Starting solver
+parsing
+./uniquetc/battleship-10-10-unsat.cnf.dqdimacs.txt 0
+Starting solver
+parsing
+./uniquetc/battleship-10-17-sat.cnf.dqdimacs.txt 0
+Starting solver
+parsing
+./uniquetc/battleship-10-19-sat.cnf.dqdimacs.txt 0
+Starting solver
+parsing
+./uniquetc/battleship-11-11-unsat.cnf.dqdimacs.txt 0
+Starting solver
+parsing
+./uniquetc/battleship-11-21-sat.cnf.dqdimacs.txt 0
+Starting solver
+parsing
+./uniquetc/battleship-12-12-unsat.cnf.dqdimacs.txt 0
+Starting solver
+parsing
+./uniquetc/battleship-13-13-unsat.cnf.dqdimacs.txt 0
+Starting solver
+parsing
+./uniquetc/battleship-5-8-unsat.cnf.dqdimacs.txt 0
+Starting solver
+parsing
+./uniquetc/battleship-6-9-unsat.cnf.dqdimacs.txt 0
+Starting solver
+parsing
+./uniquetc/battleship-7-12-unsat.cnf.dqdimacs.txt 0
+Starting solver
+parsing
+./uniquetc/bloem_add4n.dqdimacs.txt 8
+Starting solver
+parsing
+./uniquetc/bloem_add6n.dqdimacs.txt 8
+Starting solver
+parsing
+./uniquetc/bloem_add8y.dqdimacs.txt 8

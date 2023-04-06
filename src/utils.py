@@ -166,8 +166,12 @@ def get_stable_y(proj, skf1, skf2, m):
         eval1 = evaluate(y, skf1, m)
         eval2 = evaluate(y, skf2, m)
 
-        if eval1 or eval2:
+        if eval1 == 0:
             stable_y.append(y)
-            stable_eval[y] = eval1
+            stable_eval[y] = y
+        elif eval2 == 0:
+            stable_y.append(y)
+            skf1[y] = skf2[y]
+            stable_eval[y] = -y
     
     return stable_y, stable_eval

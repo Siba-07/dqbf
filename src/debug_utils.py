@@ -5,6 +5,7 @@ def printmap(x):
         print(len(x[i]))
 
 def printCNF(clauses, filename):
+    filename = str("unatefiles/"+ filename)
     f = open(filename,"w")
     l = len(clauses)
     mm = 0
@@ -13,11 +14,12 @@ def printCNF(clauses, filename):
             mm = max(mm, abs(v))
     
     f.write("p cnf {} {}".format(l,mm))
-
+    
     for c in clauses:
-        str = ' '.join(c)
-        str += " 0"
-        f.write(str)
+        # x = [str(cx) for cx in c]
+        st = ' '.join(str(x) for x in c)
+        st += " 0\n"
+        f.write(st)
     
     f.close()
 
@@ -67,3 +69,12 @@ def evaluate(ff, xx):
 #             op.append(y)
 #             corrclauses.append(op)
 #     return corrclauses
+
+ # if (args.verbose >=1 ):
+    #     # for y in proj.keys():
+    #     #     print("No of proj[y] clauses for {} =  {}".format(y, len(proj[y])))
+    #     #     if args.verbose >=2 : print("Projection function - {}".format(proj[y]))
+    # for y in skf.keys():
+    #     # if y != 9 : continue
+    #     print("No of skf[y] clauses for {} =  {}".format(y, len(skf[y])))
+    #     if args.verbose >=2 : print("Skolem functions = {}".format(skf[y]))

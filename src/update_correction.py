@@ -1,28 +1,39 @@
 from bisect import bisect_left, bisect_right
 
-def updateCorrectionsTemp(b, modelmap, cors):
+def updateCorrectionsTemp(b, modelmap, cors, cs, update = False):
 # modelmap : id -> corr
     bm = sorted(b, key=abs)
     bk = [abs(y) for y in b]
     bs = sorted(bk)
-    # print(len(cors))
     for c in cors:
-        # print(c.id)
-        # print(modelmap.keys())
         usedcor = modelmap[c.id]
         ymin = usedcor.fy
         ymax = usedcor.ly
         i1 = bisect_left(bs, ymin)
         i2 = bisect_right(bs, ymax)
         breq = bm[i1:i2]
-        # print(breq)
-        # print(breq, usedcor.y_toy.keys())
         for y in c.yvars.keys():
             yvar = usedcor.ytoy_[abs(y)]
             if yvar in breq:
                 c.yvars[y] = y
             else:
-                c.yvars[y] = -y   
+                c.yvars[y] = -y
+        
+        if update:
+            cs.depSec = {}
+            
+        for y in c.yvars.keys():
+            y_id = c.yid[y]
+            yvar = c.yvars[y]
+            if y_id in cs.depSec:
+                if -yvar in cs.depSec[y_id]:
+                    print("ERRRORRRR ABORT")
+                    exit()
+                elif yvar not in cs.depSec[y_id]:
+                    cs.depSec[y_id].append(yvar)
+            else:
+                cs.depSec[y_id] = [yvar]
+
 
 def updateCorrectionsFinal(cors):
     for c in cors:

@@ -1,4 +1,4 @@
-def getJointEncoding(x):
+def getJointEncoding(x, useConst = False):
     je = []
     modelmap = {}
     for y in x.keys():
@@ -25,6 +25,8 @@ def getJointEncoding(x):
                         cor1 = cors[i]
                         modelmap[cor1.id] = cor1
                         je.extend(cor1.enc)
+                        if useConst :
+                            je.extend(cor1.constClause)
 
                     if(cors[j].id in modelmap.keys()):
                         cor2 = modelmap[cors[j].id]
@@ -32,9 +34,11 @@ def getJointEncoding(x):
                         cor2 = cors[j]
                         modelmap[cor2.id] = cor2
                         je.extend(cor2.enc)
+                        if useConst :
+                            je.extend(cor2.constClause)
 
                     y1 = cor1.ytoy_[y]
                     y2 = cor2.ytoy_[y]
                     je.extend([[-y1,y2],[y1,-y2]])
-                   
+    # print(modelmap.keys())     
     return je, modelmap

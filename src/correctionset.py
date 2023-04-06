@@ -2,23 +2,28 @@ from copy import deepcopy
 from .preprocess import varnames
 
 class Correction:
-    def __init__(self, m, proj, clauses, Xvar, Yvar, core, stable_y, stable_eval):
+    def __init__(self, m, proj, clauses, Xvar, Yvar, core, stable_y, stable_eval, depmap, cs):
         # print(y)
         # print(m)
         self.m = m
+        self.depmap = depmap
         self.id = self.get_id(core)
+        self.yid = self.get_yid(self.id, Yvar)
         self.ytoy_ = {}
         self.y_toy = {}
         self.yvars = {}
         self.fy = -1
         self.ly = -1
-        self.enc = self.getEncoding(clauses, Xvar, Yvar, stable_y, stable_eval)
+        self.enc = self.getEncoding(clauses, Xvar, Yvar, cs)
         self.corrected = 0
+
         for y in Yvar:
             self.yvars[abs(y)] = abs(y)
             if y in stable_y:
                 self.yvars[abs(y)] = stable_eval[y]
-    
+
+        self.constClause = self.getConstClause(Yvar, cs)
+
     def __str__(self) -> str:
         return self.id
 
@@ -39,14 +44,52 @@ class Correction:
 
         return id
 
-    def getEncoding(self, clauses , Xvar, Yvar, stable_y, stable_eval):
+    def getPrimId(self, sm, id, dep):
+        id = deepcopy(id)
+        id = list(id)
+        for i in range(len(sm)):
+            if sm[i] not in dep:
+                id[i] = '*'
+        id = ''.join(id)
+        return id         
+    
+    def get_yid(self, id, Yvar):
+        yid = {}
+        sm = sorted(self.m, key = abs)
+        for y in Yvar:
+            yid[y] = self.getPrimId(sm, id, self.depmap[y])
+        
+        return yid
+
+    def getConstClause(self, Yvar,  cs):
+        cc = []
+        for y in Yvar:
+            y_id = self.yid[y]
+            yname = self.ytoy_[y]
+            if y_id in cs.depSec.keys():
+                if y in cs.depSec[y_id]:
+                    cc.append([yname])
+                elif -y in cs.depSec[y_id]:
+                    cc.append([-yname])
+        return cc
+
+
+    def getEncoding (self, clauses , Xvar, Yvar, cs):
         enc = []
         # print(clauses)
         # print(stable_y)
         st_y = []
         # print(clauses)
-        for y in stable_y:
-            st_y.append(stable_eval[y])
+        for y in Yvar:
+            k = self.yid[y]
+            if k in cs.depPrim.keys():
+                if y in cs.depPrim[k]:
+                    st_y.append(y)
+                    self.yvars[abs(y)] = y
+                elif -y in cs.depPrim[k]:
+                    st_y.append(-y)
+                    self.yvars[abs(y)] = -y
+
         # print(st_y)
         for i in range(len(clauses)):
             k = clauses[i]
@@ -96,6 +139,9 @@ class CorrectionSet:
         self.Xvar = deepcopy(Xvar)
         self.Yvar = deepcopy(Yvar)
 
+        self.depPrim = {}
+        self.depSec =  {}
+
     
     def addx(self,keys, x):
         for i in range(len(keys)):
@@ -124,16 +170,31 @@ class CorrectionSet:
             else:
                 for i in range(len(keys)):
                     keys[i] += "#"
-        return keys
+        return keys       
 
+        
     #new idea for each y maintain a dictionary, and then maintain a list of corrections and then 
     def add(self,m, core, stable_y, stable_eval):
         sm = sorted(m, key=abs)
-        corr = Correction(m , self.proj, self.clauses, self.Xvar, self.Yvar, core, stable_y, stable_eval)  
+        corr = Correction(m , self.proj, self.clauses, self.Xvar, self.Yvar, core, stable_y, stable_eval, self.depmap, self)  
         self.allcors.append(corr)
+        # print(stable_y, stable_eval)
+        for y in stable_eval:
+            y_id = corr.yid[y]
+            if y_id in self.depPrim:
+                if -stable_eval[y] in self.depPrim[y_id]:
+                    # print(stable_eval[y], y_id, self.depPrim[y_id])
+                    print("ERRRORRRR ABORT")
+                    exit()
+                else:
+                    self.depPrim[y_id].append(stable_eval[y])
+            else:
+                self.depPrim[y_id] = [stable_eval[y]]
+        
+        # print("Here", stable_eval.keys())
         for y in self.depmap.keys():
-            if y in stable_y:
-                continue
+            # if y in stable_y:
+            #     continue
 
             keys = self.getKey(y,sm, core)
             # print(y)
@@ -149,7 +210,7 @@ class CorrectionSet:
 
     def printcs(self, cx):
         for y in cx.keys():
-            # print(y)
+            print(y)
             for k in cx[y].keys():
                 # print(len(cx[y][k]))
                 for c in cx[y][k]:
