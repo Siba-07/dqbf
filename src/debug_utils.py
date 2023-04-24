@@ -1,3 +1,5 @@
+from src.utils import *
+
 def printmap(x):
     for i in x.keys():
         print(i)
@@ -22,6 +24,55 @@ def printCNF(clauses, filename):
         f.write(st)
     
     f.close()
+
+def getkey(xg, sx):
+    s = ""
+    for x in sx:
+        if x in xg:
+            s += "1"
+        elif -x in xg:
+            s += "0"
+        else:
+            s += "*"
+    return s
+
+def sanity_check(corsofar, clauses, allclauses, Xvar, Yvar, depmap):
+    sx = sorted(Xvar)
+    res = check_SAT(allclauses)
+    # print(res)
+    fy = {}
+    for y in Yvar:
+        fy[y] = {}
+
+    for id in corsofar.keys():
+        xx = getorigX(sx,id)
+        for y,xg in corsofar[id]:
+            xx.append(y)
+
+            k = getkey(xg, sx)
+            if k in fy[abs(y)].keys():
+                y_ = fy[abs(y)][k][0]
+                if y_*y < 0 :
+                    print(k, fy[abs(y)][k][1], id, y)
+                    print("INCOSISTENCY DETECTED")
+            else:
+                fy[abs(y)][k] = (y, id)
+
+
+        for c in clauses:
+            flag = 0
+            for x in xx:
+                if x in c:
+                    flag = 1
+                    break
+            if not flag:
+                print(c)
+                print("ERROR")
+        
+        
+        
+
+    
 
 def evaluate(ff, xx):
     # print(ff)

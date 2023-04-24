@@ -5,6 +5,10 @@ def updateCorrectionsTemp(b, modelmap, cors, cs, update = False):
     bm = sorted(b, key=abs)
     bk = [abs(y) for y in b]
     bs = sorted(bk)
+    
+    if update:
+        cs.depSec = {}
+
     for c in cors:
         usedcor = modelmap[c.id]
         ymin = usedcor.fy
@@ -16,23 +20,27 @@ def updateCorrectionsTemp(b, modelmap, cors, cs, update = False):
             yvar = usedcor.ytoy_[abs(y)]
             if yvar in breq:
                 c.yvars[y] = y
-            else:
+            elif -yvar in breq:
                 c.yvars[y] = -y
-        
-        if update:
-            cs.depSec = {}
-            
+
         for y in c.yvars.keys():
             y_id = c.yid[y]
             yvar = c.yvars[y]
             if y_id in cs.depSec:
                 if -yvar in cs.depSec[y_id]:
                     print("ERRRORRRR ABORT")
+                    print(yvar)
+                    print(c.id, y_id)
+                    print(cs.depSec[y_id])
                     exit()
                 elif yvar not in cs.depSec[y_id]:
                     cs.depSec[y_id].append(yvar)
             else:
                 cs.depSec[y_id] = [yvar]
+        
+        # if update :
+        #     for k in cs.depSec.keys():
+        #         print(cs.depSec[k],k)
 
 
 def updateCorrectionsFinal(cors):
@@ -94,6 +102,7 @@ def correctionClauses(b, modelmap, corsofar, depmap, Xvar):
         i1 = bisect_left(bs, ymin)
         i2 = bisect_right(bs, ymax)
         breq = bm[i1:i2]
+                
         for k in corr.y_toy.keys():
             y_ = k
             y = corr.y_toy[y_]

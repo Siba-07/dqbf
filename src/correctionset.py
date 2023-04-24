@@ -3,8 +3,6 @@ from .preprocess import varnames
 
 class Correction:
     def __init__(self, m, proj, clauses, Xvar, Yvar, core, stable_y, stable_eval, depmap, cs):
-        # print(y)
-        # print(m)
         self.m = m
         self.depmap = depmap
         self.id = self.get_id(core)
@@ -16,6 +14,7 @@ class Correction:
         self.ly = -1
         self.enc = self.getEncoding(clauses, Xvar, Yvar, cs)
         self.corrected = 0
+        self.st_y = []
 
         for y in Yvar:
             self.yvars[abs(y)] = abs(y)
@@ -50,12 +49,14 @@ class Correction:
         for i in range(len(sm)):
             if sm[i] not in dep:
                 id[i] = '*'
+        
         id = ''.join(id)
         return id         
     
     def get_yid(self, id, Yvar):
         yid = {}
         sm = sorted(self.m, key = abs)
+        sm = [abs(x) for x in sm]
         for y in Yvar:
             yid[y] = self.getPrimId(sm, id, self.depmap[y])
         
@@ -66,6 +67,7 @@ class Correction:
         for y in Yvar:
             y_id = self.yid[y]
             yname = self.ytoy_[y]
+
             if y_id in cs.depSec.keys():
                 if y in cs.depSec[y_id]:
                     cc.append([yname])
@@ -76,8 +78,6 @@ class Correction:
 
     def getEncoding (self, clauses , Xvar, Yvar, cs):
         enc = []
-        # print(clauses)
-        # print(stable_y)
         st_y = []
         # print(clauses)
         for y in Yvar:
@@ -89,8 +89,7 @@ class Correction:
                 elif -y in cs.depPrim[k]:
                     st_y.append(-y)
                     self.yvars[abs(y)] = -y
-
-        # print(st_y)
+        
         for i in range(len(clauses)):
             k = clauses[i]
             flag = 0
@@ -99,12 +98,8 @@ class Correction:
                     flag = 1
                     break  
             if not flag:
-                # print("here")
-                # print(k)
-                # print([x for x in k if (abs(x) not in Xvar) and (abs(x) not in st_y)])
                 enc.append([x for x in k if (abs(x) not in Xvar) and (abs(x) not in st_y)])
         
-        # print(self.m, enc)
         newnames = varnames(len(Yvar))
         self.fy  = min(newnames)
         self.ly = max(newnames)
@@ -121,10 +116,16 @@ class Correction:
                 else:
                     enc[i][j] = -self.ytoy_[abs(k)]
         
-        # print(self.m,enc)
-        # print(enc)
-        return enc
 
+        self.st_y = [[self.getSign(y)*self.ytoy_[abs(y)]] for y in st_y]
+        return enc
+    
+    def getSign(self,x):
+        if x>=0:
+            return 1
+        else :
+            return -1
+        
 class CorrectionSet:
     def __init__(self, depmap, proj, clauses, Xvar, Yvar):
         self.cs = {}
@@ -156,8 +157,6 @@ class CorrectionSet:
         # print(sm)
         keys = [""]
         dep = self.depmap[y]
-        # print(y, dep, sm)
-        # print(dep)
         for x in sm:
             if abs(x) in dep:
                 if x in core: 
@@ -183,7 +182,6 @@ class CorrectionSet:
             y_id = corr.yid[y]
             if y_id in self.depPrim:
                 if -stable_eval[y] in self.depPrim[y_id]:
-                    # print(stable_eval[y], y_id, self.depPrim[y_id])
                     print("ERRRORRRR ABORT")
                     exit()
                 else:
@@ -191,19 +189,14 @@ class CorrectionSet:
             else:
                 self.depPrim[y_id] = [stable_eval[y]]
         
-        # print("Here", stable_eval.keys())
-        for y in self.depmap.keys():
-            # if y in stable_y:
-            #     continue
-
+        for y in self.depmap.keys():    
             keys = self.getKey(y,sm, core)
-            # print(y)
-            # print(keys)
             for k in keys:
                 if k in self.cs[y].keys():
                     self.cs[y][k].append(corr)
                 else:
                     self.cs[y][k] = [corr]
+        
     
     def getcs(self):
         return self.cs
@@ -214,7 +207,7 @@ class CorrectionSet:
             for k in cx[y].keys():
                 # print(len(cx[y][k]))
                 for c in cx[y][k]:
-                    print(y, k, c, c.yvars)
+                    print(y, k, c, c.yvars, c.yid)
         # for y in self.depmap:
         #     k = self.getKey(y, m)
         #     print("{} with key {} has {} corrections".format(y, k, len(self.cs[y][k])))

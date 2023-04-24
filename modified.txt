@@ -1,0 +1,81 @@
+sn@MacBook-Air dqbf % python3 main.py dqbftc/battleship-10-17-sat.cnf.dqdimacs  --verb=3              
+Starting solver
+parsing
+Xvars : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+count of X variables 23
+Yvars : [13, 14, 26]
+count of Y variables 3
+No of clauses = 6030
+FOR y = 13, dependancy vars are [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+FOR y = 14, dependancy vars are [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+FOR y = 26, dependancy vars are [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+Time for IncrementSAT call = 65.99232697486877
+ENTERING SOLVER ...
+Time for getting local encoding = 0.0014379024505615234
+Time for SAT call = 0.05353713035583496
+Time for updateCorrtemp call = 0.05617880821228027
+Time for correctionclauses call = 0.05309581756591797
+Time for updatecorrectionfinal call = 0.00011086463928222656
+Time elapsed for correction = 0.16451787948608398
+Total Local corrections = 1, Global corrections = 0
+Time for IncrementSAT call = 84.56246185302734
+ENTERING SOLVER ...
+Time for getting local encoding = 0.0013201236724853516
+Time for SAT call = 0.0493168830871582
+Time for updateCorrtemp call = 0.04918408393859863
+Time for correctionclauses call = 0.05339312553405762
+Time for updatecorrectionfinal call = 7.390975952148438e-05
+Time elapsed for correction = 0.15338706970214844
+Total Local corrections = 1, Global corrections = 0
+Time for IncrementSAT call = 80.759122133255
+ENTERING SOLVER ...
+Time for getting local encoding = 0.0013360977172851562
+Local correction failed
+Time for getting local encoding = 0.0052220821380615234
+Time for SAT call = 0.05336189270019531
+Time for updateCorrtemp call = 0.054737091064453125
+Time for correctionclauses call = 0.08168816566467285
+Time for updatecorrectionfinal call = 0.0002620220184326172
+Time elapsed for correction = 0.1953902244567871
+Total Local corrections = 0, Global corrections = 1
+ Time for IncrementSAT call = 90.93954706192017
+ENTERING SOLVER ...
+Time for getting local encoding = 0.0013728141784667969
+Local correction failed
+Time for getting local encoding = 0.008925914764404297
+Time for SAT call = 0.05883383750915527
+Time for updateCorrtemp call = 0.055314064025878906
+Time for correctionclauses call = 0.08170437812805176
+Time for updatecorrectionfinal call = 0.00029397010803222656
+Time elapsed for correction = 0.2051856517791748
+Total Local corrections = 0, Global corrections = 2
+Time for IncrementSAT call = 96.38656401634216
+ENTERING SOLVER ...
+Time for getting local encoding = 0.0013980865478515625
+Local correction failed
+Time for getting local encoding = 0.010229110717773438
+Time for SAT call = 0.061920881271362305
+Time for updateCorrtemp call = 0.06167888641357422
+Time for correctionclauses call = 0.09670329093933105
+Time for updatecorrectionfinal call = 0.0003638267517089844
+Time elapsed for correction = 0.23101806640625
+Total Local corrections = 0, Global corrections = 3
+^CTraceback (most recent call last):
+  File "/Users/sn/Desktop/qbf/dqbf/main.py", line 199, in <module>
+    solver()
+  File "/Users/sn/Desktop/qbf/dqbf/main.py", line 152, in solver
+    i = incremental_SAT(s, ucs, assume, clauses, default_clauses, dsk_y, th, Xvar, Yvar, functionclauses, proj, cs, skf)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sn/Desktop/qbf/dqbf/src/utils.py", line 66, in incremental_SAT
+    res = s.solve(assumptions=assume)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/pysat/solvers.py", line 516, in solve
+    return self.solver.solve(assumptions)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/pysat/solvers.py", line 2917, in solve
+    self.status = pysolvers.glucose41_solve(self.glucose, assumptions,
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pysolvers.error: Caught keyboard interrupt
+^C
+sn@MacBook-Air dqbf % 
+sn@MacBook-Air dqbf % 

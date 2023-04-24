@@ -1,5 +1,6 @@
 from pysat.formula import CNF
 from pysat.solvers import Solver
+from copy import deepcopy
 
 global_n = 100000
 
@@ -32,9 +33,6 @@ def getEquiMultiClause(a, f):
     for i in range(len(f)):
         clauses.append([-a,gc[i]])
         singleclause = getEquiSingleClause(gc[i],f[i])
-        # if a==9 : print(f[i])
-        # if a==9 : print(singleclause)
-        # if a == 9 : print("----")
         clauses += singleclause
     gc = [-x for x in gc]
     clauses.append(gc + [a])
@@ -45,31 +43,31 @@ def cleanmodel(m, Xvar, Yvar):
     clean = [x for x in m if abs(x) in Xvar]
     return clean
 
-def process_model(b, Xvar, Yvar, skf, skf2, proj, cs, ucs, clauses, functionclauses):
+def process_model(b, assume, Xvar, Yvar, proj, cs, ucs, clauses, functionclauses, skf):
     b = cleanmodel(b, Xvar, Yvar)
-    core  = get_unsat_core(ucs, b, clauses, Xvar, functionclauses)
-    stable_y, stable_eval = get_stable_y(proj, skf, skf2, b)
+    # print(b)
+
+    core  = get_unsat_core(ucs, assume, b, clauses, Xvar, functionclauses)
+    stable_y, stable_eval = get_stable_y(proj, skf, b)
     cs.add(b, core, stable_y, stable_eval)
     return core
 
-def incremental_SAT(allclauses, orig_clauses, n, Xvar, Yvar, functionclauses, skf1, skf2, proj, cs):
-    s = Solver(name='g4', incr = True)
-    s.append_formula(allclauses)
-    
+def incremental_SAT(s, ucs, assume, orig_clauses, dc, dsk_y, n, Xvar, Yvar, functionclauses, proj, cs, skf):
+    # s = Solver(name='g4', incr = True)
+    # s.append_formula(allclauses)
+    s.append_formula(functionclauses)
     #for handling UNSAT cores in incremental way
-    exp = CNF(from_clauses = orig_clauses)
-    exp.extend(functionclauses)
-    ucs = Solver()
-    ucs.append_formula(exp)
+   
+    # exp.extend(dc)
+    ucs.append_formula(functionclauses)
 
     for i in range(n):
         # print(i)
-        res = s.solve()
+        res = s.solve(assumptions=assume)
         if not res:
             return i
         b = s.get_model()
-        # print(b)
-        core = process_model(b, Xvar, Yvar, skf1, skf2, proj, cs, ucs, orig_clauses, functionclauses)
+        core = process_model(b, assume, Xvar, Yvar, proj, cs, ucs, orig_clauses, functionclauses, skf)
         tc = getTempClause(core)
         if len(tc) != 0:
             s.add_clause(tc)
@@ -91,7 +89,7 @@ def getSigma(b, Xvar):
             sig.append(-x)
     return sig
 
-def get_unsat_core(s, b, phi, Xvar, psi):
+def get_unsat_core(s, assume, b, phi, Xvar, psi):
     # exp = CNF(from_clauses=phi)
     # exp.extend(psi)
     # res, _ = check_SAT(exp)
@@ -101,6 +99,9 @@ def get_unsat_core(s, b, phi, Xvar, psi):
     #     exit()
     
     sig = getSigma(b, Xvar)
+    curr_assume = deepcopy(assume)
+    sig.extend(curr_assume)
+
     # print("sig = ",sig)
 
     res = s.solve(assumptions=sig)
@@ -130,53 +131,74 @@ def getorigX(sx, id):
             res.append(-sx[i])
     return res
 
-def addFunctionClauses(corsofar, Xvar, skf):
+def addDefaultSkolemClauses(skf):
+    def_clauses = []
+    vnames = varnames(len(skf.keys()))
+    ind = 0
+    dsk_y = {}
+    for y in skf.keys():
+        cc = getEquiMultiClause(y, skf[y])
+        cd = getEquiMultiClause(vnames[ind], cc)
+        def_clauses.extend(cd)
+        dsk_y[y] = vnames[ind] 
+        ind += 1
+
+    return def_clauses, dsk_y
+
+def addFunctionClauses(corsofar, ids, Xvar, skf, dsk_y):
     sx = sorted(Xvar)
     xclauses = []
     n = len(corsofar.keys())*len(skf.keys())
     vnames = varnames(n)
     ind = 0
 
+    lcname = varnames(1)
+    lcname = lcname[0]
+
     yvs = {}
     for y in skf.keys():
         yvs[y] = []
 
-    for id in corsofar.keys():
+    for id in ids:
         for y,xg in corsofar[id]:
             x = [-v for  v in xg]
             var = vnames[ind]
             ind+=1
             xc = x.copy()
-            xc.append(var)
+            xc.extend([var,lcname])
             xclauses.append(xc)
-            
             xx = xg.copy()
 
             for xv in  xx:
-                xclauses.append([-var,xv])
+                xclauses.append([-var,xv, lcname])
             
-            xclauses.append([-var,y])
+            xclauses.append([-var,y, lcname])
+
             yvs[abs(y)].append(var)
     
     for y in skf.keys():
-        cc = getEquiMultiClause(y,skf[y])
-        # if y ==9 : print(y, cc)
-        for c in cc:
-            vs = yvs[y].copy()
-            vs.extend(c)
-            xclauses.append(vs)
-    return xclauses
+        vs = yvs[y].copy()
+        vs.append(dsk_y[y])
+        vs.append(lcname)
+        xclauses.append(vs)
+
+    return xclauses, lcname
+
+def getAssumption(lcs):
+    ass = [l for l in lcs[:-1]]
+    ass.append(-lcs[-1])
+    return ass
 
 def getTempClause(core):
     clause = [-x for x in core]
     return clause
 
-def evaluate(y, skf, m):
+def evaluate(y, f, m):
     flag = 0
-    for c in skf[y]:
+    for c in f[abs(y)]:
         cflag = 0
         for x in c:
-            if x in m:
+            if (x in m) or (x == y):
                 cflag = 1
                 break
         if not cflag:
@@ -187,20 +209,17 @@ def evaluate(y, skf, m):
     else:
         return 1
 
-def get_stable_y(proj, skf1, skf2, m):
+def get_stable_y(proj, skf, m):
     stable_y = []
     stable_eval = {}
     
     for y in proj:
-        eval1 = evaluate(y, skf1, m)
-        eval2 = evaluate(y, skf2, m)
+        eval1 = evaluate(y, proj, m)
+        eval2 = evaluate(-y, proj, m)
 
-        if eval1 == 0:
+        if eval1 == 1 or eval2 == 1:
             stable_y.append(y)
-            stable_eval[y] = y
-        elif eval2 == 0:
-            stable_y.append(y)
-            skf1[y] = skf2[y]
-            stable_eval[y] = -y
+            eval_y = evaluate(y, skf, m)
+            stable_eval[y] = eval_y
     
     return stable_y, stable_eval
